@@ -1,0 +1,8 @@
+no visualizar datos 
+
+neighbors dado un nodo que te devuelve los vecinos
+proteína vecinos de proteina busco q fármacos atacan
+
+mínimos de la aplicación , elegir framework el q se quiera 
+reducir carga de datos 
+programas tareas en zube 
