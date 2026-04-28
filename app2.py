@@ -4,6 +4,8 @@ import pandas as pd
 import networkx as nx
 import os
 from collections import deque
+from pyvis.network import Network
+import streamlit.components.v1 as components
 
 from drug_similarity import rank_similar_drugs
 from gene_to_uniprot import convert_gene_list
@@ -58,6 +60,32 @@ def drugs_targeting_proteins(proteins, df_drug):
         .reset_index()
         .rename(columns={"UniProt_ID": "Targets_in_neighbors"})
     )
+
+def visualize_network(G, disease_nodes, drug_targets):
+    net = Network(height="500px", width="100%", notebook=False)
+
+    nodes_to_show = set(disease_nodes) | set(drug_targets)
+
+    for n in list(nodes_to_show):
+        nodes_to_show.update(G.neighbors(n))
+
+    subG = G.subgraph(nodes_to_show)
+
+    for node in subG.nodes():
+        if node in disease_nodes:
+            color = "red"
+        elif node in drug_targets:
+            color = "blue"
+        else:
+            color = "lightgray"
+
+        net.add_node(node, label=node, color=color)
+
+    for u, v in subG.edges():
+        net.add_edge(u, v)
+
+    net.save_graph("network.html")
+    return "network.html"
 
 #PESTAÑAS
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -154,6 +182,16 @@ with tab1:
         # Añadir nombres
         drug_names = df_drug[['DrugBank_ID', 'Drug_Name']].drop_duplicates()
         ranking = ranking.merge(drug_names, on="DrugBank_ID", how="left")
+        if len(ranking) > 0:
+            top_drug = ranking.iloc[0]["DrugBank_ID"]
+            targets_top = drug_targets[top_drug]
+
+            html_file = visualize_network(G, disease_proteins, targets_top)
+
+            with open(html_file, "r", encoding="utf-8") as f:
+                components.html(f.read(), height=600)
+
+       
 
         #OUTPUT
         st.subheader("Top fármacos candidatos")
@@ -161,6 +199,8 @@ with tab1:
             ranking[['Drug_Name', 'DrugBank_ID', 'Proximity']].head(20),
             use_container_width=True
         )
+        
+     
 
         # Descarga
         csv = ranking.to_csv(index=False).encode('utf-8')
