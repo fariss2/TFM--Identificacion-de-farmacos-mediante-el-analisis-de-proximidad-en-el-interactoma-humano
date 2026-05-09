@@ -10,27 +10,95 @@ import streamlit.components.v1 as components
 from drug_similarity import rank_similar_drugs
 from gene_to_uniprot import convert_gene_list
 
-st.set_page_config(page_title="Drug Repurposing", layout="wide")
-st.title("Reposicionamiento de fármacos mediante Medicina de Redes")
+# ---------------------------------------------------------
+# CONFIGURACIÓN
+# ---------------------------------------------------------
+st.set_page_config(page_title="Reposicionamiento de Fármacos", layout="wide")
+st.title("Reposicionamiento de Fármacos mediante Medicina de Redes")
 
-# CARGA DE DATOS
+st.info("""
+**¿Qué hace este análisis?**
+
+Esta herramienta identifica fármacos potenciales para una enfermedad basándose en su proximidad en la red de proteínas humanas.
+
+Cuanto más cerca están las proteínas diana de un fármaco de las proteínas asociadas a la enfermedad, mayor es su potencial efecto terapéutico.
+
+**Interpretación clínica:**
+- No implica indicación aprobada, sino hipótesis de reposicionamiento
+
+""")
+
+st.sidebar.info("""
+Aplicación basada en Medicina de Redes
+
+Permite:
+- Reposicionamiento de fármacos
+- Análisis de dianas terapéuticas
+- Exploración del interactoma humano
+""")
 DATA_PATH = r"C:\Users\Nisrin Fariss Lamine\Downloads\tfm"
 
+# ---------------------------------------------------------
+# FUNCIONES
+# ---------------------------------------------------------
 @st.cache_data
 def load_data():
     df_edges = pd.read_csv(os.path.join(DATA_PATH, "biogrid_edges.csv"))
     G = nx.from_pandas_edgelist(df_edges, source='source', target='target')
 
     df_drug = pd.read_csv(os.path.join(DATA_PATH, "drugbank_targets_clean.csv"))
-    return G, df_drug
 
-G, df_drug = load_data()
+    df_disorders = pd.read_csv(
+        os.path.join(DATA_PATH, "disorder_genes.csv"),
+        sep=";"
+    )
 
-st.sidebar.header("Información general")
+    return G, df_drug, df_disorders
 
-# FUNCIONES 
+
+G, df_drug, df_disorders = load_data()
+
+
+def pagerank_propio(G, alpha=0.85, max_iter=100, tol=1e-06):
+    # Lista de nodos
+    nodes = list(G.nodes())
+    N = len(nodes)
+
+    # PageRank inicial
+    pr = {n: 1.0 / N for n in nodes}
+
+    # Grado de salida (en grafo no dirigido es el grado normal)
+    out_degree = {n: len(list(G.neighbors(n))) for n in nodes}
+
+    # Evitar divisiones por cero
+    for n in nodes:
+        if out_degree[n] == 0:
+            out_degree[n] = 1
+
+    # Iteración principal
+    for _ in range(max_iter):
+        new_pr = {}
+        diff = 0
+
+        for n in nodes:
+            rank_sum = 0
+            for nbr in G.neighbors(n):
+                rank_sum += pr[nbr] / out_degree[nbr]
+
+            new_pr[n] = (1 - alpha) / N + alpha * rank_sum
+
+            diff += abs(new_pr[n] - pr[n])
+
+        pr = new_pr
+
+        # Criterio de convergencia
+        if diff < tol:
+            break
+
+    return pr
+
 def multi_source_bfs(G, sources):
-    """ BFS desde múltiples proteínas a la vez (más rápido) """
+    """ BFS desde múltiples nodos (más rápido que buscar uno a uno) """
     dist = {n: float("inf") for n in G.nodes()}
     queue = deque()
 
@@ -53,61 +121,99 @@ def drugs_targeting_proteins(proteins, df_drug):
     df = df_drug[df_drug["UniProt_ID"].isin(proteins)]
     return (
         df.groupby("DrugBank_ID")
-        .agg({
-            "Drug_Name": "first",
-            "UniProt_ID": set
-        })
+        .agg({"Drug_Name": "first", "UniProt_ID": set})
         .reset_index()
         .rename(columns={"UniProt_ID": "Targets_in_neighbors"})
     )
+def visualize_network(G, disease_nodes, drug_targets, max_neighbors=20):
 
-def visualize_network(G, disease_nodes, drug_targets):
-    net = Network(height="500px", width="100%", notebook=False)
+    net = Network(height="600px", width="100%", bgcolor="#ffffff")
+    html_path = os.path.join(os.getcwd(), "network.html")
 
-    nodes_to_show = set(disease_nodes) | set(drug_targets)
+    # Mejorar física y visual
+    net.set_options("""
+    var options = {
+      "nodes": {
+        "shape": "dot",
+        "size": 15,
+        "font": {"size": 16}
+      },
+      "edges": {
+        "smooth": false
+      },
+      "physics": {
+        "barnesHut": {
+          "gravitationalConstant": -3000,
+          "centralGravity": 0.3,
+          "springLength": 95
+        },
+        "minVelocity": 0.75
+      }
+    }
+    """)
 
+    # Nodos a mostrar
+    nodes_to_show = set()
+
+    # Enfermedad
+    nodes_to_show.update(disease_nodes)
+
+    # Dianas del fármaco top
+    nodes_to_show.update(drug_targets)
+
+    # Vecinos limitados
     for n in list(nodes_to_show):
-        nodes_to_show.update(G.neighbors(n))
+        neighbors = list(G.neighbors(n))[:max_neighbors]
+        nodes_to_show.update(neighbors)
 
     subG = G.subgraph(nodes_to_show)
 
+    # Añadir nodos
     for node in subG.nodes():
         if node in disease_nodes:
-            color = "red"
+            color = "#e74c3c"  # rojo
         elif node in drug_targets:
-            color = "blue"
+            color = "#2980b9"  # azul
         else:
-            color = "lightgray"
+            color = "#bdc3c7"  # gris
 
         net.add_node(node, label=node, color=color)
 
+    # Añadir aristas
     for u, v in subG.edges():
         net.add_edge(u, v)
 
-    net.save_graph("network.html")
-    return "network.html"
+    net.save_graph(html_path)
+    return html_path
 
-#PESTAÑAS
+pagerank_scores = pagerank_propio(G)
+
+
+# ---------------------------------------------------------
+# PESTAÑAS
+# ---------------------------------------------------------
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    " Ranking de fármacos (proximidad)",
-    " Alternativas a un fármaco",
-    " Conversión símbolo → UniProt",
-    " Fármacos sobre vecinos",
-    " Información y metodología"
+    "Búsqueda por proteína",
+    "Búsqueda por fármaco",
+    "Búsqueda por Enfermedad ",
+    "Conversión a UniProt",
+    "Información"
 ])
 
-#— PROXIMIDAD ENFERMEDAD → FÁRMACOS
+
+# ---------------------------------------------------------
+# TAB 1 
+# ---------------------------------------------------------
 with tab1:
-    st.subheader("Introduce proteínas asociadas a la enfermedad")
+    st.markdown("### Proteínas o genes asociados a la enfermedad")
 
     user_input = st.text_area(
-        "Puedes introducir símbolos (TP53) o UniProt (P04637)",
+        "Simbolo de interés.",
         height=120
     )
 
     if user_input:
 
-        # Separación y detección 
         raw_items = [p.strip() for p in user_input.split(",") if p.strip()]
 
         def is_uniprot(x):
@@ -116,7 +222,7 @@ with tab1:
         symbols = [x for x in raw_items if not is_uniprot(x)]
         uniprots = [x for x in raw_items if is_uniprot(x)]
 
-        # Conversión 
+        # Conversión
         mapping = convert_gene_list(symbols) if symbols else {}
 
         converted_uniprots = [
@@ -125,118 +231,220 @@ with tab1:
 
         disease_proteins = set(uniprots + converted_uniprots)
 
-        # Mostrar conversiones 
+        # Mostrar conversión
         if symbols:
-            st.write("### Conversión símbolo → UniProt:")
+            st.write("### Conversión símbolo → UniProt")
             for s in symbols:
                 if mapping[s] is None:
                     st.error(f"{s}: NO encontrado")
                 else:
                     st.success(f"{s} → {mapping[s]}")
 
-        #Filtrar por red
+        # Filtrar por red
         disease_proteins = disease_proteins.intersection(G.nodes())
-        st.write(f"Proteínas válidas: **{len(disease_proteins)}**")
 
+        st.write(f"Proteínas válidas: **{len(disease_proteins)}**")
         if len(disease_proteins) == 0:
-            st.warning("Ninguna coincidencia.")
+            st.warning("Ninguna proteína coincide con el interactoma.")
             st.stop()
 
-        # Distancias 
-        with st.spinner("Calculando distancias en la red..."):
+        # Distancias
+        with st.spinner("Calculando distancias..."):
             dist_to_disease = multi_source_bfs(G, disease_proteins)
 
-        #  Targets de fármacos 
+        # Targets de fármacos
         drug_targets = (
-            df_drug
-            .groupby('DrugBank_ID')['UniProt_ID']
+            df_drug.groupby("DrugBank_ID")["UniProt_ID"]
             .apply(set)
             .to_dict()
         )
 
-        # Función proximidad 
-        def proximity(targets):
+        def proximidad(targets):
             dists = [
                 dist_to_disease.get(t, float("inf"))
                 for t in targets
-                if t in G.nodes()
             ]
+            dists = [d for d in dists if d != float("inf")]
             if len(dists) == 0:
                 return None
             return sum(dists) / len(dists)
 
-        #  Calcular ranking
-        with st.spinner("Calculando proximidad de fármacos..."):
+        # Ranking
+        with st.spinner("Evaluando fármacos..."):
             results = []
             for drug, targets in drug_targets.items():
                 valid_targets = targets.intersection(G.nodes())
                 if len(valid_targets) == 0:
                     continue
-                score = proximity(valid_targets)
+                score = proximidad(valid_targets)
                 if score is not None:
                     results.append((drug, score))
 
-        ranking = pd.DataFrame(results, columns=["DrugBank_ID", "Proximity"])
-        ranking = ranking.sort_values("Proximity")
+        ranking = pd.DataFrame(results, columns=["DrugBank_ID", "Proximidad"])
+        ranking = ranking.sort_values("Proximidad")
+ 
 
-        # Añadir nombres
-        drug_names = df_drug[['DrugBank_ID', 'Drug_Name']].drop_duplicates()
-        ranking = ranking.merge(drug_names, on="DrugBank_ID", how="left")
-        if len(ranking) > 0:
-            top_drug = ranking.iloc[0]["DrugBank_ID"]
-            targets_top = drug_targets[top_drug]
+        def drug_pagerank(targets):
+            values = [pagerank_scores[t] for t in targets if t in pagerank_scores]
+            return sum(values) / len(values) if values else 0
 
-            html_file = visualize_network(G, disease_proteins, targets_top)
+        ranking["PageRank"] = ranking["DrugBank_ID"].apply(
+            lambda d: drug_pagerank(drug_targets[d])
+        )
 
-            with open(html_file, "r", encoding="utf-8") as f:
-                components.html(f.read(), height=600)
+        
+        ranking["Combinación"] = (#por docs 
+            ranking["Proximidad"].rank(method="dense") * 0.7 +
+            ranking["PageRank"].rank(method="dense", ascending=False) * 0.3
+        )
 
        
+        
 
-        #OUTPUT
-        st.subheader("Top fármacos candidatos")
-        st.dataframe(
-            ranking[['Drug_Name', 'DrugBank_ID', 'Proximity']].head(20),
-            use_container_width=True
+
+        # Añadir nombres
+        ranking = ranking.merge(
+            df_drug[['DrugBank_ID', 'Drug_Name']].drop_duplicates(),
+            on="DrugBank_ID",
+            how="left"
         )
         
-     
+        st.info("""
+        **Visualización de red:**
 
-        # Descarga
-        csv = ranking.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="Descargar datos",
-            data=csv,
-            file_name="drug_ranking.csv",
-            mime="text/csv"
+        - 🔴 Proteínas de la enfermedad  
+        - 🔵 Dianas del fármaco  
+        """)
+        # VISUALIZACIÓN
+        top_drug = ranking.iloc[0]["DrugBank_ID"]
+        top_targets = drug_targets[top_drug]
+
+        st.subheader("Visualización del fármaco mejor posicionado")
+        html_file = visualize_network(G, disease_proteins, top_targets)
+
+        with open(html_file, "r", encoding="utf-8") as f:
+            components.html(f.read(), height=600)
+        
+        st.info("""
+        **Interpretación del ranking:**
+
+        - Cada fila representa un fármaco, los primeros fármacos son los más relevantes
+
+        Este resultado no sustituye evidencia clínica.
+        """)
+        
+        # TABLA
+        st.subheader("Top 20 fármacos (Proximidad + PageRank)")
+
+        st.dataframe(
+            ranking[["Drug_Name", "DrugBank_ID", "Proximidad", "PageRank", "Combinación"]]
+            .sort_values("Combinación")
+            .head(20),
+            use_container_width=True,
+            hide_index=True
         )
 
-#— ALTERNATIVAS A UN FÁRMACO
-with tab2:
-    st.subheader("Buscar alternativas basadas en red")
+        best = ranking.sort_values("Combinación").iloc[0]
 
-    drug_query = st.text_input(
-        "Introduce el nombre del fármaco"
+        st.markdown("## Interpretación clínica del modelo combinado")
+
+        st.success(f"""
+        **Fármaco prioritario (modelo combinado): _{best['Drug_Name']}_**
+
+        **Proximidad:** {best['Proximidad']:.2f}  
+        **PageRank:** {best['PageRank']:.5f}
+
+        ### Por qué este fármaco es relevante:
+        - Está cerca de los genes implicados en la enfermedad  
+        - Sus dianas se sitúan en proteínas **centrales del interactoma**, lo que implica mayor impacto regulatorio  
+        - La combinación de métricas reduce falsos positivos e identifica fármacos:
+        
+            – Cercanos a la enfermedad (efecto directo)
+            
+            – Influyentes en la red biológica (efecto sistémico).
+
+        Este resultado fortalece la priorización para análisis preclínicos.
+        """)
+
+        st.subheader("Análisis rápido de vecinos")
+        st.info("""
+        **Análisis de vecindario:**
+        
+        Explora qué fármacos actúan sobre proteínas cercanas a una proteína de interés.
+        Útil para identificar dianas indirectas.
+        """)
+      
+
+        protein_single = st.text_input("Selecciona una proteína para analizar su vecindario (UniProt ID)")
+
+        if st.button("Buscar fármacos que actúan sobre los vecinos", key="neighbors_from_tab1"):
+            if protein_single not in G.nodes():
+                st.error("La proteína no está en el interactoma.")
+            else:
+                neighbors = list(G.neighbors(protein_single))
+                st.write(f"Vecinos encontrados: {len(neighbors)}")
+
+                result = drugs_targeting_proteins(neighbors, df_drug)
+
+                if result.empty:
+                    st.warning("No se encontraron fármacos para esos vecinos.")
+                else:
+                    result["Num_targets"] = result["Targets_in_neighbors"].apply(len)
+                    result = result.sort_values("Num_targets", ascending=False)
+                    st.dataframe(result, use_container_width=True, hide_index=True)
+
+
+        st.download_button(
+            "Descargar ranking",
+            ranking.to_csv(index=False).encode(),
+            "drug_ranking.csv",
+            "text/csv"
+        )
+
+
+# ---------------------------------------------------------
+# TAB 2
+# ---------------------------------------------------------
+with tab2:
+    st.subheader("Alternativas a un fármaco")
+    st.info("""
+    **Búsqueda de alternativas terapéuticas**
+
+    Este módulo identifica fármacos con mecanismos similares basados en sus dianas en la red.
+
+    Útil cuando:
+    - Un fármaco no funciona
+    - Hay efectos adversos
+    - Se buscan alternativas terapéuticas
+
+    No implica equivalencia clínica directa.
+    """)
+    
+    drug_list = sorted(df_drug["Drug_Name"].dropna().unique())
+
+    drug_query = st.selectbox(
+        "Selecciona un fármaco",
+        drug_list,
+        index=None,
+        placeholder="Buscar fármaco..."
     )
+
 
     if st.button("Buscar alternativas"):
         try:
             drug_id, targets, ranking = rank_similar_drugs(G, df_drug, drug_query)
 
-            st.write(f"Fármaco: **{drug_query}** (ID: {drug_id})")
-            st.write(f"Dianas → {', '.join(targets)}")
-
-            st.subheader("Fármacos similares")
+            st.write(f"ID del fármaco: **{drug_id}**")
+            st.write(f"Dianas: {', '.join(targets)}")
 
             st.dataframe(
-                ranking[["Drug_Name", "DrugBank_ID", "Proximity"]].head(20),
-                use_container_width=True
+                ranking[["Drug_Name", "DrugBank_ID", "Proximidad"]].head(20),
+                use_container_width=True,hide_index=True
             )
 
-            csv2 = ranking.to_csv(index=False).encode('utf-8')
             st.download_button(
-                "Descargar ranking de alternativas",
-                csv2,
+                "Descargar alternativas",
+                ranking.to_csv(index=False).encode(),
                 "drug_alternatives.csv",
                 "text/csv"
             )
@@ -244,75 +452,185 @@ with tab2:
         except ValueError as e:
             st.error(str(e))
 
-#CONVERSIÓN SÍMBOLO → UNIPROT
+
+
+# ---------------------------------------------------------
+# TAB 3
+# ---------------------------------------------------------
 with tab3:
-    st.subheader("Conversión de símbolos de genes a UniProt")
+    st.subheader("Explorar genes de una enfermedad")
 
-    user_genes = st.text_input("Ejemplo: TP53, EGFR, BRCA1...")
+    disorder = st.selectbox(
+        "Selecciona enfermedad",
+        df_disorders["disorder"].dropna().unique()
+    )
 
-    if st.button("Convertir"):
-        if user_genes.strip():
-            genes = [g.strip().upper() for g in user_genes.split(",")]
-            mapping = convert_gene_list(genes)
+    # Obtener genes asociados a la enfermedad
+    genes_str = df_disorders[df_disorders["disorder"] == disorder]["gene_symb"].values[0]
+    genes_list = [g.strip() for g in genes_str.split(",") if g.strip()]
 
-            st.write("### Resultados:")
-            for g, u in mapping.items():
-                if u is None:
-                    st.error(f"{g}: No encontrado")
-                else:
-                    st.success(f"{g} → {u}")
+    gene = st.selectbox("Selecciona un gen", genes_list)
 
-#— FÁRMACOS SOBRE VECINOS
+    st.info(f"Gen seleccionado: **{gene}**")
+
+    # Conversión símbolo → UniProt
+    mapping = convert_gene_list([gene])
+    uniprot = mapping.get(gene)
+
+    # Validaciones
+    if uniprot is None:
+        st.error("No se pudo convertir el gen seleccionado a UniProt.")
+    elif uniprot not in G.nodes():
+        st.warning("El gen no está presente en el interactoma.")
+    else:
+        st.success(f"{gene} → {uniprot}")
+
+        # ==========================================
+        #   BOTÓN: REPOSICIONAMIENTO PARA ESTE GEN
+        # ==========================================
+        if st.button("Evaluar reposicionamiento para este gen"):
+            
+            # Distancia desde el gen (BFS)
+            with st.spinner("Calculando proximidad del gen…"):
+                dist_single = multi_source_bfs(G, [uniprot])
+
+            # Targets de fármacos
+            drug_targets = (
+                df_drug.groupby("DrugBank_ID")["UniProt_ID"]
+                .apply(set)
+                .to_dict()
+            )
+
+            def proximity_single(targets):
+                d = [dist_single.get(t, float("inf")) for t in targets]
+                d = [x for x in d if x != float("inf")]
+                return sum(d) / len(d) if d else None
+
+            # Ranking por proximidad
+            results = []
+            for d, targets in drug_targets.items():
+                valid_targets = targets.intersection(G.nodes())
+                if len(valid_targets) == 0:
+                    continue
+                score = proximity_single(valid_targets)
+                if score is not None:
+                    results.append((d, score))
+
+            ranking_gene = pd.DataFrame(results, columns=["DrugBank_ID", "Proximidad"])
+
+            ranking_gene = ranking_gene.merge(
+                df_drug[["DrugBank_ID", "Drug_Name"]].drop_duplicates(),
+                on="DrugBank_ID"
+            )
+
+            # ============================
+            #   PageRank por fármaco
+            # ============================
+            def drug_pagerank(targets):
+                values = [pagerank_scores[t] for t in targets if t in pagerank_scores]
+                return sum(values) / len(values) if values else 0
+
+            ranking_gene["PageRank"] = ranking_gene["DrugBank_ID"].apply(
+                lambda d: drug_pagerank(drug_targets[d])
+            )
+
+            # ============================
+            #   Score combinado
+            # ============================
+
+           
+            ranking_gene["Combinación"] = (
+                ranking_gene["Proximidad"].rank(method="dense") * 0.7 +
+                ranking_gene["PageRank"].rank(method="dense", ascending=False) * 0.3
+            )
+
+            # Seleccionar mejor fármaco
+            best = ranking_gene.sort_values("Combinación").iloc[0]
+
+            # ============================
+            #   INTERPRETACIÓN CLÍNICA
+            # ============================
+            st.markdown("## Interpretación clínica")
+            st.success(f"""
+            **Fármaco prioritario para el gen {gene}: _{best['Drug_Name']}_**
+
+            - Proximidad: **{best['Proximidad']:.2f}**  
+            - PageRank: **{best['PageRank']:.4f}**  
+            - Score combinado: **{best['Combinación']:.2f}**
+
+            El fármaco actúa sobre dianas próximas al gen y situadas en zonas centrales del interactoma.  
+            Esto refuerza la hipótesis de reposicionamiento.
+            """)
+
+            # ============================
+            #   VISUALIZACIÓN DE RED
+            # ============================
+            st.subheader("Visualización del fármaco prioritario")
+
+            html_file = visualize_network(
+                G,
+                [uniprot],
+                drug_targets[best["DrugBank_ID"]]
+            )
+
+            with open(html_file, "r", encoding="utf-8") as f:
+                components.html(f.read(), height=600)
+
+            # ============================
+            #   TABLA DE RESULTADOS
+            # ============================
+            st.subheader("Top 20 fármacos para este gen")
+            st.dataframe(
+                ranking_gene.sort_values("Combinación").head(20),
+                use_container_width=True,hide_index=True
+            )
+# ---------------------------------------------------------
+# TAB 4
+# ---------------------------------------------------------
 with tab4:
-    st.subheader("Fármacos que actúan sobre vecinos de una proteína")
+    st.subheader("Conversión de símbolos → UniProt")
+    st.info("""
+    **Conversión de identificadores**
 
-    protein_input = st.text_input("Introduce UniProt (ej: P04637)")
+    Convierte genes a identificadores UniProt usados en la red.
 
-    if st.button("Buscar vecinos"):
-        if protein_input not in G.nodes():
-            st.error("Proteína no encontrada en el interactoma.")
-        else:
-            neighbors = list(G.neighbors(protein_input))
+    Necesario para integrar datos biológicos.
+    """)
 
-            st.write(f"Vecinos directos: **{len(neighbors)}**")
-            st.write(neighbors[:50])
+    genes = st.text_input("Introduce gen")
 
-            result = drugs_targeting_proteins(neighbors, df_drug)
+    if st.button("Convertir símbolos"):
+        lst = [g.strip().upper() for g in genes.split(",")]
+        mapping = convert_gene_list(lst)
 
-            st.subheader("Fármacos que actúan sobre los vecinos")
-
-            if result.empty:
-                st.warning("No se encontraron fármacos.")
+        st.write("### Resultados:")
+        for g, u in mapping.items():
+            if u is None:
+                st.error(f"{g}: No encontrado")
             else:
-                result["Num_targets"] = result["Targets_in_neighbors"].apply(len)
-                result = result.sort_values("Num_targets", ascending=False)
-
-                st.dataframe(
-                    result[["Drug_Name", "DrugBank_ID", "Num_targets", "Targets_in_neighbors"]],
-                    use_container_width=True
-                )
-
-#— INFORMACIÓN Y METODOLOGÍA
+                st.success(f"{g} → {u}")
+# ---------------------------------------------------------
+# TAB 5
+# ---------------------------------------------------------
 with tab5:
     st.subheader("¿Cómo funciona esta herramienta?")
     st.write("""
-    Esta aplicación utiliza principios de **Medicina de Redes**:
+    Esta herramienta utiliza principios de **Medicina de Redes**:
 
-    - Las enfermedades alteran módulos completos del interactoma.
-    - Las proteínas asociadas a la enfermedad definen una región de interés.
-    - Un fármaco es candidato si sus dianas están **cerca de ese módulo**.
-    - La proximidad se estima como distancia mínima promedio.
-    - También se identifican:
-        - Alternativas a un fármaco (targets cercanos en red)
-        - Fármacos que actúan sobre vecinos de proteínas clave
-        - Conversión de nombres clínicos → UniProt
+    - Las enfermedades afectan módulos del interactoma.
+    - Los fármacos son candidatos si sus dianas están **cerca** del módulo.
+    - La proximidad se calcula mediante BFS multifuente.
+    - También identifica:
+        - Alternativas a un fármaco
+        - Fármacos que actúan sobre vecinos
+        - Conversión de símbolos → UniProt
 
-    Las bases de datos usadas son:
-    - **BioGRID** para el interactoma
-    - **DrugBank** para relaciones fármaco-diana
-    - **DisGeNet** proximamente...
-    - **MyGene.info** para convertir símbolos a UniProt
-    -
+    Bases de datos:
+    - BioGRID 
+    - DrugBank 
+    - MyGene.info
+    
+    **No implica equivalencia clínica directa.**
 
     """)
 

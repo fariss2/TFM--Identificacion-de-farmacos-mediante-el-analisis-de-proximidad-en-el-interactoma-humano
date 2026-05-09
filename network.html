@@ -1,0 +1,127 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script src="lib/bindings/utils.js"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 600px;
+                 background-color: #ffffff;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"color": "#bdc3c7", "id": "P40925", "label": "P40925", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q92597", "label": "Q92597", "shape": "dot"}, {"color": "#bdc3c7", "id": "P24941", "label": "P24941", "shape": "dot"}, {"color": "#2980b9", "id": "P00338", "label": "P00338", "shape": "dot"}, {"color": "#bdc3c7", "id": "P51587", "label": "P51587", "shape": "dot"}, {"color": "#bdc3c7", "id": "P25788", "label": "P25788", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q92830", "label": "Q92830", "shape": "dot"}, {"color": "#e74c3c", "id": "P04637", "label": "P04637", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q99728", "label": "Q99728", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q96M61", "label": "Q96M61", "shape": "dot"}, {"color": "#bdc3c7", "id": "P46736", "label": "P46736", "shape": "dot"}, {"color": "#bdc3c7", "id": "P05549", "label": "P05549", "shape": "dot"}, {"color": "#bdc3c7", "id": "P29320", "label": "P29320", "shape": "dot"}, {"color": "#bdc3c7", "id": "P35558", "label": "P35558", "shape": "dot"}, {"color": "#bdc3c7", "id": "P27694", "label": "P27694", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q9NUX5", "label": "Q9NUX5", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q13535", "label": "Q13535", "shape": "dot"}, {"color": "#bdc3c7", "id": "O60706", "label": "O60706", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q9UNH5", "label": "Q9UNH5", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q16611", "label": "Q16611", "shape": "dot"}, {"color": "#bdc3c7", "id": "O14757", "label": "O14757", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q86VP6", "label": "Q86VP6", "shape": "dot"}, {"color": "#bdc3c7", "id": "P38398", "label": "P38398", "shape": "dot"}, {"color": "#bdc3c7", "id": "O14641", "label": "O14641", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q13618", "label": "Q13618", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q13315", "label": "Q13315", "shape": "dot"}, {"color": "#bdc3c7", "id": "P12004", "label": "P12004", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q00987", "label": "Q00987", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q9BSI4", "label": "Q9BSI4", "shape": "dot"}, {"color": "#bdc3c7", "id": "P54132", "label": "P54132", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q06609", "label": "Q06609", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q96AP0", "label": "Q96AP0", "shape": "dot"}, {"color": "#bdc3c7", "id": "P54274", "label": "P54274", "shape": "dot"}, {"color": "#bdc3c7", "id": "P31749", "label": "P31749", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q9NZC7", "label": "Q9NZC7", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q12888", "label": "Q12888", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q9NXR7", "label": "Q9NXR7", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q14654", "label": "Q14654", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q9UQL6", "label": "Q9UQL6", "shape": "dot"}, {"color": "#bdc3c7", "id": "P05161", "label": "P05161", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q93034", "label": "Q93034", "shape": "dot"}, {"color": "#bdc3c7", "id": "Q92993", "label": "Q92993", "shape": "dot"}]);
+                  edges = new vis.DataSet([{"from": "P40925", "to": "P04637"}, {"from": "P40925", "to": "P54274"}, {"from": "P40925", "to": "P31749"}, {"from": "P40925", "to": "P00338"}, {"from": "P40925", "to": "P38398"}, {"from": "P40925", "to": "P27694"}, {"from": "Q92597", "to": "P00338"}, {"from": "Q92597", "to": "P27694"}, {"from": "Q92597", "to": "Q13618"}, {"from": "P24941", "to": "P38398"}, {"from": "P24941", "to": "P04637"}, {"from": "P24941", "to": "P12004"}, {"from": "P24941", "to": "Q92830"}, {"from": "P24941", "to": "P27694"}, {"from": "P24941", "to": "P00338"}, {"from": "P24941", "to": "Q86VP6"}, {"from": "P24941", "to": "P51587"}, {"from": "P24941", "to": "Q99728"}, {"from": "P00338", "to": "Q14654"}, {"from": "P00338", "to": "O60706"}, {"from": "P00338", "to": "Q92993"}, {"from": "P00338", "to": "Q92830"}, {"from": "P00338", "to": "Q9UQL6"}, {"from": "P00338", "to": "P12004"}, {"from": "P00338", "to": "P25788"}, {"from": "P00338", "to": "P35558"}, {"from": "P00338", "to": "P05161"}, {"from": "P00338", "to": "P54274"}, {"from": "P00338", "to": "Q9BSI4"}, {"from": "P00338", "to": "Q96AP0"}, {"from": "P00338", "to": "Q9NUX5"}, {"from": "P00338", "to": "Q13618"}, {"from": "P00338", "to": "Q93034"}, {"from": "P00338", "to": "Q86VP6"}, {"from": "P00338", "to": "P31749"}, {"from": "P00338", "to": "P27694"}, {"from": "P00338", "to": "P38398"}, {"from": "P00338", "to": "P04637"}, {"from": "P00338", "to": "P51587"}, {"from": "P51587", "to": "Q06609"}, {"from": "P51587", "to": "P38398"}, {"from": "P51587", "to": "Q99728"}, {"from": "P51587", "to": "Q9NXR7"}, {"from": "P51587", "to": "P46736"}, {"from": "P51587", "to": "P04637"}, {"from": "P51587", "to": "Q13535"}, {"from": "P51587", "to": "Q13315"}, {"from": "P51587", "to": "P12004"}, {"from": "P51587", "to": "Q12888"}, {"from": "P51587", "to": "P27694"}, {"from": "P51587", "to": "O14757"}, {"from": "P25788", "to": "Q00987"}, {"from": "P25788", "to": "P05161"}, {"from": "P25788", "to": "P04637"}, {"from": "P25788", "to": "P27694"}, {"from": "P25788", "to": "Q86VP6"}, {"from": "Q92830", "to": "P04637"}, {"from": "Q92830", "to": "Q12888"}, {"from": "Q92830", "to": "P31749"}, {"from": "Q92830", "to": "P27694"}, {"from": "P04637", "to": "Q9NZC7"}, {"from": "P04637", "to": "Q9UNH5"}, {"from": "P04637", "to": "Q96M61"}, {"from": "P04637", "to": "O14641"}, {"from": "P04637", "to": "Q12888"}, {"from": "P04637", "to": "Q16611"}, {"from": "P04637", "to": "P54132"}, {"from": "P04637", "to": "P38398"}, {"from": "P04637", "to": "Q13315"}, {"from": "P04637", "to": "Q13535"}, {"from": "P04637", "to": "P05549"}, {"from": "P04637", "to": "P29320"}, {"from": "P04637", "to": "Q99728"}, {"from": "P04637", "to": "Q06609"}, {"from": "P04637", "to": "Q9NXR7"}, {"from": "P04637", "to": "P46736"}, {"from": "P04637", "to": "Q00987"}, {"from": "P04637", "to": "P27694"}, {"from": "P04637", "to": "O14757"}, {"from": "P04637", "to": "Q92993"}, {"from": "P04637", "to": "Q9UQL6"}, {"from": "P04637", "to": "P12004"}, {"from": "P04637", "to": "P31749"}, {"from": "P04637", "to": "Q13618"}, {"from": "Q99728", "to": "P38398"}, {"from": "Q99728", "to": "Q9NXR7"}, {"from": "Q99728", "to": "P46736"}, {"from": "Q99728", "to": "Q06609"}, {"from": "Q99728", "to": "Q92993"}, {"from": "Q99728", "to": "P54274"}, {"from": "Q99728", "to": "Q12888"}, {"from": "P46736", "to": "Q9NXR7"}, {"from": "P46736", "to": "P38398"}, {"from": "P46736", "to": "Q06609"}, {"from": "P46736", "to": "Q86VP6"}, {"from": "P46736", "to": "Q12888"}, {"from": "P46736", "to": "Q13618"}, {"from": "P46736", "to": "Q9NUX5"}, {"from": "P05549", "to": "P38398"}, {"from": "P29320", "to": "P31749"}, {"from": "P35558", "to": "Q93034"}, {"from": "P35558", "to": "P31749"}, {"from": "P27694", "to": "P54132"}, {"from": "P27694", "to": "Q13535"}, {"from": "P27694", "to": "Q12888"}, {"from": "P27694", "to": "Q06609"}, {"from": "P27694", "to": "P12004"}, {"from": "P27694", "to": "P38398"}, {"from": "P27694", "to": "Q13315"}, {"from": "P27694", "to": "O14641"}, {"from": "P27694", "to": "Q13618"}, {"from": "P27694", "to": "Q93034"}, {"from": "P27694", "to": "Q9NXR7"}, {"from": "P27694", "to": "Q86VP6"}, {"from": "P27694", "to": "P31749"}, {"from": "Q9NUX5", "to": "Q96AP0"}, {"from": "Q9NUX5", "to": "Q9BSI4"}, {"from": "Q9NUX5", "to": "P54274"}, {"from": "Q9NUX5", "to": "Q00987"}, {"from": "Q9NUX5", "to": "Q12888"}, {"from": "Q9NUX5", "to": "P38398"}, {"from": "Q13535", "to": "P38398"}, {"from": "Q13535", "to": "Q13315"}, {"from": "Q13535", "to": "O14757"}, {"from": "Q13535", "to": "P54132"}, {"from": "Q13535", "to": "Q12888"}, {"from": "Q13535", "to": "Q13618"}, {"from": "O14757", "to": "P54132"}, {"from": "O14757", "to": "Q12888"}, {"from": "O14757", "to": "Q13315"}, {"from": "O14757", "to": "P12004"}, {"from": "O14757", "to": "P38398"}, {"from": "O14757", "to": "Q06609"}, {"from": "Q86VP6", "to": "Q13618"}, {"from": "Q86VP6", "to": "Q9UQL6"}, {"from": "Q86VP6", "to": "Q93034"}, {"from": "Q86VP6", "to": "P54132"}, {"from": "Q86VP6", "to": "P38398"}, {"from": "Q86VP6", "to": "Q9NZC7"}, {"from": "Q86VP6", "to": "P05161"}, {"from": "P38398", "to": "Q06609"}, {"from": "P38398", "to": "P54132"}, {"from": "P38398", "to": "Q9NXR7"}, {"from": "P38398", "to": "Q13315"}, {"from": "P38398", "to": "P31749"}, {"from": "P38398", "to": "Q12888"}, {"from": "P38398", "to": "P54274"}, {"from": "P38398", "to": "Q92993"}, {"from": "P38398", "to": "P12004"}, {"from": "P38398", "to": "Q9NZC7"}, {"from": "P38398", "to": "Q9BSI4"}, {"from": "P38398", "to": "Q96AP0"}, {"from": "O14641", "to": "Q9NZC7"}, {"from": "O14641", "to": "Q13618"}, {"from": "O14641", "to": "P54132"}, {"from": "Q13618", "to": "Q92993"}, {"from": "Q13618", "to": "Q93034"}, {"from": "Q13618", "to": "P12004"}, {"from": "Q13618", "to": "Q9NXR7"}, {"from": "Q13618", "to": "Q13315"}, {"from": "Q13315", "to": "P54132"}, {"from": "Q13315", "to": "Q12888"}, {"from": "Q13315", "to": "Q06609"}, {"from": "Q13315", "to": "P54274"}, {"from": "Q13315", "to": "Q92993"}, {"from": "Q13315", "to": "Q00987"}, {"from": "Q13315", "to": "Q9NZC7"}, {"from": "Q13315", "to": "P12004"}, {"from": "P12004", "to": "Q00987"}, {"from": "P12004", "to": "Q9UQL6"}, {"from": "P12004", "to": "Q92993"}, {"from": "P12004", "to": "Q93034"}, {"from": "P12004", "to": "Q06609"}, {"from": "P12004", "to": "Q9NZC7"}, {"from": "Q00987", "to": "Q92993"}, {"from": "Q00987", "to": "P31749"}, {"from": "Q00987", "to": "Q9NZC7"}, {"from": "Q00987", "to": "Q9NXR7"}, {"from": "Q9BSI4", "to": "Q96AP0"}, {"from": "Q9BSI4", "to": "P54274"}, {"from": "Q9BSI4", "to": "Q12888"}, {"from": "P54132", "to": "Q12888"}, {"from": "P54132", "to": "Q06609"}, {"from": "P54132", "to": "P54274"}, {"from": "Q06609", "to": "Q9NXR7"}, {"from": "Q06609", "to": "Q12888"}, {"from": "Q96AP0", "to": "P54274"}, {"from": "Q96AP0", "to": "Q93034"}, {"from": "Q96AP0", "to": "Q12888"}, {"from": "P54274", "to": "Q12888"}, {"from": "Q12888", "to": "Q9NXR7"}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {"nodes": {"shape": "dot", "size": 15, "font": {"size": 16}}, "edges": {"smooth": false}, "physics": {"barnesHut": {"gravitationalConstant": -3000, "centralGravity": 0.3, "springLength": 95}, "minVelocity": 0.75}};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>
