@@ -1,0 +1,18 @@
+interacciones proteicas--biogrid
+enfermedades--genes(codifica proteinas)--convertir a uniprot para comparar con biogrid
+para cada proteína del fármaco buscar prot enf mas cercana y media de las distancias minimas 
+abc (diana farmaco) def(prot enfermedad) 
+
+para quitar aleatoriedad de distancias --bins con fármacos con condiciones similares al fármaco real 
+sacamos las distancias medias falsa y las desviacion falsa 
+
+z =(dist_obs– media_falsas)/desviación_falsas(compara lo real con lo aleatorio
+La interpretación es:
+z < 0     el fármaco está más cerca de lo esperado por azar
+z ≈ 0     el fármaco no destaca frente al modelo nulo(azar)
+z > 0     el fármaco está más lejos de lo esperado por azar
+Cuanto más negativo sea el z-score, mayor es la proximidad estadísticamente relevante.
+
+Si el fármaco real está mucho más cerca que los falsos --es interesante.
+
+pvalor-- de los farmacos falsos cuantos tuvieron la misma distancia que la primera dist p<0.05 significativo y cuanto mas pequeño mejor 
