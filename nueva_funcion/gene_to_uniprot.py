@@ -18,7 +18,7 @@ def symbol_to_uniprot(symbol):
     data = r.json()
 
     if not data.get("hits"):
-        return []   # 🔥 IMPORTANTE
+        return []   
 
     uniprot = data["hits"][0].get("uniprot", {})
 
