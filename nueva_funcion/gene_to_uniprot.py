@@ -2,12 +2,15 @@
 
 import requests
 #conversion gene a codigo uniptot para su uso posterior 
+   
+
 def symbol_to_uniprot(symbol):
     url = "https://mygene.info/v3/query"
 
     params = {
         "q": symbol,
-        "fields": "uniprot"
+        "fields": "uniprot",
+        "species": "human"
     }
 
     r = requests.get(url, params=params)
@@ -15,15 +18,23 @@ def symbol_to_uniprot(symbol):
     data = r.json()
 
     if not data.get("hits"):
-        return None
+        return []   # 🔥 IMPORTANTE
 
     uniprot = data["hits"][0].get("uniprot", {})
 
+    resultados = []
+
     if isinstance(uniprot, dict):
-        return uniprot.get("Swiss-Prot") or uniprot.get("TrEMBL")
+        for key in ["Swiss-Prot", "TrEMBL"]:
+            val = uniprot.get(key)
 
-    return None
+            if isinstance(val, list):
+                resultados.extend(val)
+            elif isinstance(val, str):
+                resultados.append(val)
 
+    return resultados
+    
 
 def convert_gene_list(symbols):
     return {s: symbol_to_uniprot(s) for s in symbols}
