@@ -353,7 +353,7 @@ with tab1:
                 st.warning("No se encontraron farmacos evaluables para este gen.")
                 st.stop()
             best = ranking_gene.iloc[0]
-            st.subheader("Visualización del mejor candidato")
+            st.subheader("Visualización del candidato más priorizado por la red")
             # Modificado por Nacho: se usa la nueva red contextual para conectar gen y farmaco candidato
             html_file = visualize_context_network(
                 G,
@@ -453,7 +453,7 @@ with tab2:
                         # Modificado por Nacho: se recupera el nombre para etiquetar el nodo del farmaco candidato
                         top_drug_name = ranking_alt.iloc[0]["Drug_Name"]
 
-                        st.subheader(f"Visualización — mejor candidato frente a {farmaco_nombre}")
+                        st.subheader(f"Visualización — candidato  frente a {farmaco_nombre}")
                         # Modificado por Nacho: se visualiza el farmaco de referencia y el candidato como nodos propios
                         html_file = visualize_context_network(
                             G,
@@ -572,19 +572,78 @@ with tab4:
 
     - Las enfermedades afectan módulos del interactoma.
     - Los fármacos son candidatos si sus dianas están **cerca** del módulo.
-    - La proximidad se calcula mediante BFS multifuente.
+    - La proximidad y su significancia estadística ($Z$-score) se calculan mediante simulación Monte Carlo ajustada por grado.
     - También identifica:
         - Alternativas a un fármaco
         - Fármacos que actúan sobre vecinos
         - Conversión de símbolos → UniProt
 
-    Bases de datos:
-    - BioGRID → interacciones proteína-proteína  
-    - DrugBank → dianas farmacológicas  
-    - MyGene.info → conversión de genes  
-    - Conjunto de datos aportados en la asignatura Análisis de Datos de Alta Dimensión y Medicina de Redes.
-
+    """)
     
-    **No implica equivalencia clínica directa.**
+    # ---------------------------------------------------------
+    # NUEVA SECCIÓN: CONTROL Y CALIDAD DE DATOS
+    # ---------------------------------------------------------
+    st.markdown("---")
+    st.subheader("Resumen de Calidad y Métricas de los Datos")
+    
+    # cobertura
+    nodos_red = G.number_of_nodes()
+    aristas_red = G.number_of_edges()
+    
+    dianas_totales_db = df_drug["UniProt_ID"].nunique()
+    dianas_en_red = len([t for t in df_drug["UniProt_ID"].dropna().unique() if t in G])
+    cobertura_dianas = (dianas_en_red / dianas_totales_db) * 100 if dianas_totales_db > 0 else 0
+    
+    farmacos_totales = df_drug["DrugBank_ID"].nunique()
+    # fármacos con al menos 1 diana mapeada en el interactoma
+    farmacos_con_diana_en_red = sum(1 for tg in drug_targets.values() if len(tg.intersection(G.nodes())) > 0)
+    
+    todos_los_genes = set()
+    for lista in df_disorders["gene_symb"].dropna():
+        for g in lista.split(","):
+            if g.strip():
+                todos_los_genes.add(g.strip())
+                
+    enfermedades_totales = df_disorders["disorder"].nunique()
 
+    # metricas formato tabla/métricas estructuradas
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric(label="Nodos del Interactoma (Proteínas)", value=f"{nodos_red:,}")
+        st.metric(label="Interacciones (Aristas BioGRID)", value=f"{aristas_red:,}")
+    with col2:
+        st.metric(label="Fármacos únicos (DrugBank)", value=f"{farmacos_totales:,}")
+        st.metric(label="Fármacos Evaluables en Red", value=f"{farmacos_con_diana_en_red:,}")
+    with col3:
+        st.metric(label="Enfermedades cargadas", value=f"{enfermedades_totales:,}")
+        st.metric(label="Total Genes Únicos de Enfermedad", value=f"{len(todos_los_genes):,}")
+
+    st.markdown("#### Cobertura biológica en la red:")
+    
+    #  DF resumen 
+    df_metricas = pd.DataFrame({
+        "Indicador de Calidad": [
+            "Dianas terapéuticas totales en DrugBank",
+            "Dianas terapéuticas cubiertas por el Interactoma",
+            "Porcentaje de cobertura de dianas",
+            "Densidad de la red (Interactoma)",
+            "Número medio de interacciones por proteína (Grado medio)"
+        ],
+        "Valor": [
+            f"{dianas_totales_db:,}",
+            f"{dianas_en_red:,}",
+            f"{cobertura_dianas:.2f}%",
+            f"{nx.density(G):.5f}",
+            f"{np.mean([d for n, d in G.degree()]):.2f}"
+        ]
+    })
+    st.table(df_metricas)
+    
+    st.markdown("---")
+    st.write("""
+    **Bases de datos utilizadas:**
+    - **BioGRID:** Red de interacciones proteína-proteína humanas (interactoma).
+    - **DrugBank:** Registro de fármacos y sus correspondientes dianas proteicas mapeadas a identificadores UniProt.
+    - **MyGene.info:** Módulo de conversión dinámica de Símbolos Genéticos a accesiones UniProt.
+    - *Datos provistos en el marco de la asignatura Análisis de Datos de Alta Dimensión y Medicina de Redes.*
     """)
