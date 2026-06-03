@@ -6,7 +6,9 @@ def symbol_to_uniprot(symbol):
 
     params = {
         "q": symbol,
-        "fields": "uniprot"
+        "fields": "uniprot",
+        "species": "human"
+
     }
 
     r = requests.get(url, params=params)

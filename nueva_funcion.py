@@ -5,7 +5,7 @@ import numpy as np
 from collections import deque
 from gene_to_uniprot import convert_gene_list#genes--uniprot
 
-DATA_PATH = r"C:\Users\Nisrin Fariss Lamine\Downloads\tfm"
+DATA_PATH = os.path.join(os.path.dirname(__file__), "data")
 
 def cargar_datos():
     print("Cargando BioGRID...")
