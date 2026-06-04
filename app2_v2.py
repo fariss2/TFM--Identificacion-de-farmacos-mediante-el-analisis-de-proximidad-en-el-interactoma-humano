@@ -7,8 +7,10 @@ import random
 from collections import deque
 from pyvis.network import Network
 import streamlit.components.v1 as components
+import matplotlib.pyplot as plt
+import plotly.express as px  
 from gene_to_uniprot import convert_gene_list
-
+from network_medicine import bfs_multifuente,proximidad_estadistica, generar_dianas_aleatorias,distancia_media_conjunto
 # ---------------------------------------------------------
 # CONFIGURACIÓN
 # ---------------------------------------------------------
@@ -29,6 +31,11 @@ Cuanto más cerca están las proteínas diana de un fármaco de las proteínas a
 
 """)
 
+st.sidebar.image(
+    "portada.png", 
+    use_container_width=True 
+)
+
 st.sidebar.info("""
 Aplicación basada en Medicina de Redes
 
@@ -44,6 +51,7 @@ No evalúa:
 - Ensayos clínicos
 
 """)
+
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data")
 BIN_TAM =  50
 # Modificado por Nacho: se aumenta el numero de simulaciones Monte Carlo para estabilizar z-score y p-valor.
@@ -68,20 +76,6 @@ def load_data():
 
 G, df_drug, df_disorders = load_data()
 
-def bfs_multifuente(grafo, origenes):
-    dist = {n: float("inf") for n in grafo.nodes()}
-    q = deque()
-    for s in origenes:
-        if s in dist:
-            dist[s] = 0
-            q.append(s)
-    while q:
-        u = q.popleft()
-        for v in grafo.neighbors(u):
-            if dist[v] == float("inf"):
-                dist[v] = dist[u] + 1
-                q.append(v)
-    return dist
 @st.cache_data 
 def construir_bins_por_grado(_grafo, tamaño_bin):
     grados = {n: _grafo.degree(n) for n in _grafo.nodes()} 
@@ -91,91 +85,13 @@ def construir_bins_por_grado(_grafo, tamaño_bin):
         bins.setdefault(bin_id, []).append(prot) 
     return grados, bins
 grados, bins_grado = construir_bins_por_grado(G, BIN_TAM)
-def generar_dianas_aleatorias(dianas_reales, grados, bins, tamaño_bin):
-    aleatorias = []
-    for d in dianas_reales:
-        g = grados.get(d)
-        if g is None:
-            continue
-        bin_id = g // tamaño_bin
-        if bin_id not in bins or not bins[bin_id]:
-            continue
-        aleatorias.append(random.choice(bins[bin_id]))
-    return aleatorias
-def distancia_media_conjunto(dianas, distancias_ref):
-    vals = [distancias_ref.get(d, float("inf")) for d in dianas]
-    vals = [v for v in vals if v != float("inf")]
-    return sum(vals) / len(vals) if vals else None
-def proximidad_estadistica(dianas, distancias_ref, grados, bins, repeticiones=200, tamaño_bin=50):
-    dist_obs = distancia_media_conjunto(dianas, distancias_ref)
-    if dist_obs is None:
-        return None, None, None, None, None
-    dist_aleatorias = []
-    for _ in range(repeticiones):
-        rand_set = generar_dianas_aleatorias(dianas, grados, bins, tamaño_bin)
-        d_rand = distancia_media_conjunto(rand_set, distancias_ref)
-        if d_rand is not None:
-            dist_aleatorias.append(d_rand)
-    if len(dist_aleatorias) < 3:
-        return dist_obs, None, None, None, None
-    media = float(np.mean(dist_aleatorias))
-    sd = float(np.std(dist_aleatorias)) if np.std(dist_aleatorias) > 0 else 1e-9
-    z = (dist_obs - media) / sd
-    p = (1 + sum(x <= dist_obs for x in dist_aleatorias)) / (1 + len(dist_aleatorias))
-    return dist_obs, media, sd, z, p
-def visualize_network(G, disease_nodes, drug_targets, max_neighbors=20):
-    net = Network(height="600px", width="100%", bgcolor="#ffffff")
-    html_path = os.path.join(os.getcwd(), "network.html")
-    net.set_options("""
-    var options = {
-      "nodes": {"shape": "dot","size": 15,"font": {"size": 16}},
-      "edges": {"smooth": false},
-      "physics": {
-        "enabled": true,
-        "stabilization": {"enabled": true, "iterations": 150},
-        "barnesHut": {
-            "gravitationalConstant": -1500,
-            "centralGravity": 0.2,
-            "springLength": 110
-        },
-        "timestep": 0.3,
-        "minVelocity": 1.0
-      }
-    }
-    """)
-
-    disease_nodes = [n for n in disease_nodes if n in G]
-    drug_targets = [n for n in drug_targets if n in G]
-
-    nodes_to_show = set(disease_nodes + drug_targets)
-
-    for n in list(nodes_to_show):
-        if n in G:
-            neighbors = list(G.neighbors(n))[:max_neighbors]
-            nodes_to_show.update(neighbors)
-
-    subG = G.subgraph(nodes_to_show)
-
-    for node in subG.nodes():
-        if node in disease_nodes:
-            color = "#e74c3c"#rojo
-        elif node in drug_targets:
-            color = "#2980b9"#azul
-        else:
-            color = "#bdc3c7"#gris
-
-        net.add_node(node, label=node, color=color)
-
-    for u, v in subG.edges():
-        net.add_edge(u, v)
-
-    net.save_graph(html_path)
-
-    return html_path
-
-
-# Modificado por Nacho: nueva visualizacion con nodos explicitos para contexto y farmaco candidato
-# Mantiene la visualizacion antigua disponible en visualize_network()
+@st.cache_data
+def map_drug_targets(df):
+    return df.groupby("DrugBank_ID")["UniProt_ID"].apply(set).to_dict()
+drug_targets = map_drug_targets(df_drug)
+# ---------------------------------------------------------
+# VISUALIZACION
+# ---------------------------------------------------------
 def visualize_context_network(
     G,
     context_nodes,
@@ -289,12 +205,6 @@ def visualize_context_network(
     net.save_graph(html_path)
 
     return html_path
-    
-@st.cache_data
-def map_drug_targets(df):
-    return df.groupby("DrugBank_ID")["UniProt_ID"].apply(set).to_dict()
-drug_targets = map_drug_targets(df_drug)
-
 # ---------------------------------------------------------
 # PESTAÑAS
 # ---------------------------------------------------------
@@ -342,11 +252,54 @@ with tab1:
                     )
                     if d_obs is None:
                         continue
-                    resultados.append((d, d_obs, z, p))
-            ranking_gene = pd.DataFrame(resultados, columns=["DrugBank_ID","Proximidad","Zscore","Pvalor"]).merge(
+                    resultados.append((d, d_obs, mu,sd, z, p))
+            ranking_gene = pd.DataFrame(resultados, columns=["DrugBank_ID","Proximidad","Media nula", "Desviación nula","Zscore","Pvalor"]).merge(
                 df_drug[["DrugBank_ID","Drug_Name"]].drop_duplicates(),
                 on="DrugBank_ID", how="left"
             ).sort_values(["Zscore","Pvalor"], ascending=[True, True])
+
+            st.subheader("Dispersión: Z-score vs P-valor")
+            
+            top20_ids = set(ranking_gene.nsmallest(20, "Zscore")["DrugBank_ID"])
+            
+            # columna para la clasificación 
+            ranking_gene['Clasificación'] = 'Otros fármacos'
+            ranking_gene.loc[ranking_gene['DrugBank_ID'].isin(top20_ids), 'Clasificación'] = 'Top 20 fármacos'
+            
+            #  -log10(Pvalor) para el eje X para q no se solapen cerca del cero
+            ranking_gene["logP"] = -np.log10(ranking_gene["Pvalor"])
+            
+            fig_px = px.scatter(
+                ranking_gene,
+                x="logP",
+                y="Zscore",
+                color="Clasificación",
+                color_discrete_map={
+                    'Top 20 fármacos': 'red',
+                    'Otros fármacos': 'gray'
+                },
+                #  raton
+                hover_name="Drug_Name", 
+                hover_data={
+                    'DrugBank_ID': True,  
+                    'Zscore': ':.2f',    
+                    'Pvalor': ':.4f',     
+                    'logP': False,        
+                    'Clasificación': False 
+                },
+                labels={
+                    "logP": "-log10(P-valor)",
+                    "Zscore": "Z-score"
+                },
+                template="plotly_white"
+            )
+            
+            fig_px.add_hline(y=0, line_dash="dash", line_color="black")
+            
+            st.plotly_chart(fig_px, use_container_width=True)
+
+                        
+
             # Visualización del mejor por Z-score
             # Modificado por Nacho: se evita acceder a la primera fila si no hay farmacos evaluables
             if ranking_gene.empty:
@@ -366,7 +319,7 @@ with tab1:
                 components.html(f.read(), height=600)
             st.subheader("Top 20 fármacos para este gen por Z-score")
             st.dataframe(
-                ranking_gene[["Drug_Name","DrugBank_ID","Proximidad","Zscore","Pvalor"]].head(20),
+                ranking_gene[["Drug_Name","DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]].head(20),
                 use_container_width=True, hide_index=True
             )
             st.download_button(
@@ -438,12 +391,13 @@ with tab2:
                             )
                             if d_obs is None:
                                 continue
-                            resultados.append((drug_id, d_obs, z, p))
+                            resultados.append((drug_id, d_obs,mu,sd, z, p))
+                        
 
                     if len(resultados) == 0:
                         st.warning("No se pudieron evaluar alternativas con los datos disponibles.")
                     else:
-                        ranking_alt = pd.DataFrame(resultados, columns=["DrugBank_ID","Proximidad","Zscore","Pvalor"]).merge(
+                        ranking_alt = pd.DataFrame(resultados, columns=["DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]).merge(
                             df_drug[["DrugBank_ID","Drug_Name"]].drop_duplicates(),
                             on="DrugBank_ID", how="left"
                         ).sort_values(["Zscore","Pvalor"], ascending=[True, True])
@@ -452,6 +406,46 @@ with tab2:
                         top_targets = drug_targets[top_drug]
                         # Modificado por Nacho: se recupera el nombre para etiquetar el nodo del farmaco candidato
                         top_drug_name = ranking_alt.iloc[0]["Drug_Name"]
+                        st.subheader("Dispersión: Z-score vs P-valor")
+            
+                        top20_ids = set(ranking_alt.nsmallest(20, "Zscore")["DrugBank_ID"])
+                        
+                        # columna para la clasificación 
+                        ranking_alt['Clasificación'] = 'Otros fármacos'
+                        ranking_alt.loc[ranking_alt['DrugBank_ID'].isin(top20_ids), 'Clasificación'] = 'Top 20 fármacos'
+                        
+                        #  -log10(Pvalor) para el eje X para q no se solapen cerca del cero
+                        ranking_alt["logP"] = -np.log10(ranking_alt["Pvalor"])
+                        
+                        fig_px = px.scatter(
+                            ranking_alt,
+                            x="logP",
+                            y="Zscore",
+                            color="Clasificación",
+                            color_discrete_map={
+                                'Top 20 fármacos': 'red',
+                                'Otros fármacos': 'gray'
+                            },
+                            #  raton
+                            hover_name="Drug_Name", 
+                            hover_data={
+                                'DrugBank_ID': True,  
+                                'Zscore': ':.2f',    
+                                'Pvalor': ':.4f',     
+                                'logP': False,        
+                                'Clasificación': False 
+                            },
+                            labels={
+                                "logP": "-log10(P-valor)",
+                                "Zscore": "Z-score"
+                            },
+                            template="plotly_white"
+                        )
+                        
+                        fig_px.add_hline(y=0, line_dash="dash", line_color="black")
+                        
+                        st.plotly_chart(fig_px, use_container_width=True)
+
 
                         st.subheader(f"Visualización — candidato  frente a {farmaco_nombre}")
                         # Modificado por Nacho: se visualiza el farmaco de referencia y el candidato como nodos propios
@@ -467,7 +461,7 @@ with tab2:
 
                         st.subheader("Top 20 alternativas por Z-score")
                         st.dataframe(
-                            ranking_alt[["Drug_Name","DrugBank_ID","Proximidad","Zscore","Pvalor"]].head(20),
+                            ranking_alt[["Drug_Name","DrugBank_ID","Proximidad","Media nula","Desviación nula", "Zscore","Pvalor"]].head(20),
                             use_container_width=True, hide_index=True
                         )
 
@@ -530,8 +524,8 @@ with tab3:
                 )
                 if d_obs is None:
                     continue
-                resultados.append((drug, d_obs, z, p))
-        ranking_est = pd.DataFrame(resultados, columns=["DrugBank_ID","Proximidad","Zscore","Pvalor"]).merge(
+                resultados.append((drug, d_obs,mu,sd, z, p))
+        ranking_est = pd.DataFrame(resultados, columns=["DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]).merge(
             df_drug[["DrugBank_ID","Drug_Name"]].drop_duplicates(),
             on="DrugBank_ID", how="left"
         ).sort_values(["Zscore","Pvalor"], ascending=[True, True])
@@ -540,6 +534,50 @@ with tab3:
         top_targets = drug_targets[top_drug]
         # Modificado por Nacho: se recupera el nombre para etiquetar el nodo del farmaco candidato.
         top_drug_name = ranking_est.iloc[0]["Drug_Name"]
+        st.subheader("Dispersión: Z-score vs P-valor")
+            
+        top20_ids = set(ranking_gene.nsmallest(20, "Zscore")["DrugBank_ID"])
+            
+            # columna para la clasificación 
+        ranking_est['Clasificación'] = 'Otros fármacos'
+        ranking_est.loc[ranking_est['DrugBank_ID'].isin(top20_ids), 'Clasificación'] = 'Top 20 fármacos'
+            
+            #  -log10(Pvalor) para el eje X para q no se solapen cerca del cero
+        ranking_est["logP"] = -np.log10(ranking_est["Pvalor"])
+            
+        fig_px = px.scatter(
+            ranking_est,
+            x="logP",
+            y="Zscore",
+            color="Clasificación",
+            color_discrete_map={
+                'Top 20 fármacos': 'red',
+                'Otros fármacos': 'gray'
+                },
+                #  raton
+            hover_name="Drug_Name", 
+            hover_data={
+                'DrugBank_ID': True,  
+                'Zscore': ':.2f',    
+                'Pvalor': ':.4f',     
+                'logP': False,        
+                'Clasificación': False 
+                },
+            labels={
+                "logP": "-log10(P-valor)",
+                "Zscore": "Z-score"
+                },
+            template="plotly_white"
+            )
+            
+        fig_px.add_hline(y=0, line_dash="dash", line_color="black")
+            
+        st.plotly_chart(fig_px, use_container_width=True)
+
+
+        
+
+
         st.subheader("Visualización del mejor fármaco")
         # Modificado por Nacho: se usa la nueva red contextual en lugar de mostrar solo proteinas
         html_file = visualize_context_network(
@@ -553,7 +591,7 @@ with tab3:
             components.html(f.read(), height=600)
         st.subheader("Top 20 fármacos por Z-score")
         st.dataframe(
-            ranking_est[["Drug_Name","DrugBank_ID","Proximidad","Zscore","Pvalor"]].head(20),
+            ranking_est[["Drug_Name","DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]].head(20),
             use_container_width=True, hide_index=True
         )
         st.download_button(
