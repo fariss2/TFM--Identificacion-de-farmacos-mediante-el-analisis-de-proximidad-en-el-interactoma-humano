@@ -1,0 +1,11 @@
+Filtro de limpieza de BioGRID
+Entrada: C:\Users\Nisrin Fariss Lamine\Downloads\tfm\data\biogrid_edges.csv
+Salida: C:\Users\Nisrin Fariss Lamine\Downloads\tfm\data\biogrid_edges_clean.csv
+
+input_rows: 953408
+expanded_rows: 945558
+removed_missing_id: 7850
+removed_invalid_uniprot: 0
+removed_self_loop: 0
+removed_duplicate_or_inverse: 55379
+kept_edges: 890179

@@ -1,0 +1,18 @@
+rutas relativas para que no salga de errores   
+
+
+
+Convertir el notebook en un script limpio, proximidad_estadistica.py, con funciones puras y sin celdas de prueba mezcladas. 
+
+Cuidado con el grafo de prueba que utiliza el mismo nombre que el del interactoma
+
+Utilizar rutas relativas al repo, no absolutas
+
+Unificar el criterio en gene_to_uniprot o siempre devuelve una lista o siempre devuelve un único UniProt, y adaptar la app a esa salida
+
+Garantizar que cada simulación conserva el mismo número de dianas que el fármaco real 
+
+Añadir semilla aleatoria configurable #q se pueden reproducir los procesos, que el eerror no sea por azar , fijar por el usuario en el y sino la aleatorio  
+
+requerimientos.txt
+establecer las versiones de las bibliotecas para q streamlit funcione bien 
