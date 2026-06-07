@@ -258,6 +258,36 @@ with tab1:
                 on="DrugBank_ID", how="left"
             ).sort_values(["Zscore","Pvalor"], ascending=[True, True])
 
+            
+
+                        
+
+            # Visualización del mejor por Z-score
+            # Modificado por Nacho: se evita acceder a la primera fila si no hay farmacos evaluables
+            if ranking_gene.empty:
+                st.warning("No se encontraron farmacos evaluables para este gen.")
+                st.stop()
+            best = ranking_gene.iloc[0]
+            
+            st.subheader("Top 20 fármacos para este gen por Z-score")
+            st.dataframe(
+                ranking_gene[["Drug_Name","DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]].head(20),
+                use_container_width=True, hide_index=True
+            )
+
+            st.subheader("Visualización del candidato más priorizado por la red")
+            # Modificado por Nacho: se usa la nueva red contextual para conectar gen y farmaco candidato
+            html_file = visualize_context_network(
+                G,
+                uniprots_validos,
+                drug_targets[best["DrugBank_ID"]],
+                f"{gene}",
+                f"{best['Drug_Name']} ({best['DrugBank_ID']})",
+            )
+            with open(html_file, "r", encoding="utf-8") as f:
+                components.html(f.read(), height=600)
+
+                
             st.subheader("Dispersión: Z-score vs P-valor")
             
             top20_ids = set(ranking_gene.nsmallest(20, "Zscore")["DrugBank_ID"])
@@ -298,30 +328,7 @@ with tab1:
             
             st.plotly_chart(fig_px, use_container_width=True)
 
-                        
-
-            # Visualización del mejor por Z-score
-            # Modificado por Nacho: se evita acceder a la primera fila si no hay farmacos evaluables
-            if ranking_gene.empty:
-                st.warning("No se encontraron farmacos evaluables para este gen.")
-                st.stop()
-            best = ranking_gene.iloc[0]
-            st.subheader("Visualización del candidato más priorizado por la red")
-            # Modificado por Nacho: se usa la nueva red contextual para conectar gen y farmaco candidato
-            html_file = visualize_context_network(
-                G,
-                uniprots_validos,
-                drug_targets[best["DrugBank_ID"]],
-                f"{gene}",
-                f"{best['Drug_Name']} ({best['DrugBank_ID']})",
-            )
-            with open(html_file, "r", encoding="utf-8") as f:
-                components.html(f.read(), height=600)
-            st.subheader("Top 20 fármacos para este gen por Z-score")
-            st.dataframe(
-                ranking_gene[["Drug_Name","DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]].head(20),
-                use_container_width=True, hide_index=True
-            )
+            
             st.download_button(
                 "Descargar ranking por gen (Z-score)",
                 ranking_gene.to_csv(index=False).encode(),
@@ -406,6 +413,32 @@ with tab2:
                         top_targets = drug_targets[top_drug]
                         # Modificado por Nacho: se recupera el nombre para etiquetar el nodo del farmaco candidato
                         top_drug_name = ranking_alt.iloc[0]["Drug_Name"]
+                        
+
+
+                        
+
+                        st.subheader("Top 20 alternativas por Z-score")
+                        st.dataframe(
+                            ranking_alt[["Drug_Name","DrugBank_ID","Proximidad","Media nula","Desviación nula", "Zscore","Pvalor"]].head(20),
+                            use_container_width=True, hide_index=True
+                        )
+
+
+                        st.subheader(f"Visualización — candidato  frente a {farmaco_nombre}")
+                        # Modificado por Nacho: se visualiza el farmaco de referencia y el candidato como nodos propios
+                        html_file = visualize_context_network(
+                            G,
+                            ref_targets,
+                            top_targets,
+                            f"{farmaco_nombre} ({drug_id_ref})",
+                            f"{top_drug_name} ({top_drug})",
+                        )
+                        with open(html_file, "r", encoding="utf-8") as f:
+                            components.html(f.read(), height=600)
+
+
+                            
                         st.subheader("Dispersión: Z-score vs P-valor")
             
                         top20_ids = set(ranking_alt.nsmallest(20, "Zscore")["DrugBank_ID"])
@@ -445,28 +478,10 @@ with tab2:
                         fig_px.add_hline(y=0, line_dash="dash", line_color="black")
                         
                         st.plotly_chart(fig_px, use_container_width=True)
-
-
-                        st.subheader(f"Visualización — candidato  frente a {farmaco_nombre}")
-                        # Modificado por Nacho: se visualiza el farmaco de referencia y el candidato como nodos propios
-                        html_file = visualize_context_network(
-                            G,
-                            ref_targets,
-                            top_targets,
-                            f"{farmaco_nombre} ({drug_id_ref})",
-                            f"{top_drug_name} ({top_drug})",
-                        )
-                        with open(html_file, "r", encoding="utf-8") as f:
-                            components.html(f.read(), height=600)
-
-                        st.subheader("Top 20 alternativas por Z-score")
-                        st.dataframe(
-                            ranking_alt[["Drug_Name","DrugBank_ID","Proximidad","Media nula","Desviación nula", "Zscore","Pvalor"]].head(20),
-                            use_container_width=True, hide_index=True
-                        )
+                        
 
                         st.download_button(
-                            "Descargar alternativas (Z-score)",
+                            "Descargar alternativas ",
                             ranking_alt.to_csv(index=False).encode(),
                             "alternativas_zscore.csv",
                             "text/csv"
@@ -534,6 +549,33 @@ with tab3:
         top_targets = drug_targets[top_drug]
         # Modificado por Nacho: se recupera el nombre para etiquetar el nodo del farmaco candidato.
         top_drug_name = ranking_est.iloc[0]["Drug_Name"]
+        
+
+
+        
+
+
+        
+        with open(html_file, "r", encoding="utf-8") as f:
+            components.html(f.read(), height=600)
+        st.subheader("Top 20 fármacos por Z-score")
+        st.dataframe(
+            ranking_est[["Drug_Name","DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]].head(20),
+            use_container_width=True, hide_index=True
+        )
+        
+        st.subheader("Visualización del mejor fármaco")
+        #se usa la nueva red contextual en lugar de mostrar solo proteinas
+        html_file = visualize_context_network(
+            G,
+            disease_proteins,
+            top_targets,
+            "Proteinas de enfermedad",
+            f"{top_drug_name} ({top_drug})",
+        )
+
+        
+
         st.subheader("Dispersión: Z-score vs P-valor")
             
         top20_ids = set(ranking_gene.nsmallest(20, "Zscore")["DrugBank_ID"])
@@ -574,28 +616,9 @@ with tab3:
             
         st.plotly_chart(fig_px, use_container_width=True)
 
-
         
-
-
-        st.subheader("Visualización del mejor fármaco")
-        # Modificado por Nacho: se usa la nueva red contextual en lugar de mostrar solo proteinas
-        html_file = visualize_context_network(
-            G,
-            disease_proteins,
-            top_targets,
-            "Proteinas de enfermedad",
-            f"{top_drug_name} ({top_drug})",
-        )
-        with open(html_file, "r", encoding="utf-8") as f:
-            components.html(f.read(), height=600)
-        st.subheader("Top 20 fármacos por Z-score")
-        st.dataframe(
-            ranking_est[["Drug_Name","DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]].head(20),
-            use_container_width=True, hide_index=True
-        )
         st.download_button(
-            "Descargar ranking (Z-score)",
+            "Descargar ranking ",
             ranking_est.to_csv(index=False).encode(),
             "ranking_zscore.csv",
             "text/csv"
