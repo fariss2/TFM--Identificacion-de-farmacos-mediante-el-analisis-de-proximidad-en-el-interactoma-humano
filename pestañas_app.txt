@@ -1,8 +1,0 @@
-pestañas app
-1) ranking por proxomidad,a partir de proteínas asociadas a una enfermedad, se calcula su posición en el interactoma y se evalúan todos los fármacos según la cercanía de sus dianas a ese conjunto. enfermedad vs farmaco
-
-2) reposición de fármaco, a apartir de dianas del fármaco introducido y calcula su posición en el interactoma; después compara con otros fármacos evaluando la proximidad entre sus conjuntos de targets
-3)traducción para tratar genes tambien 
-4)ver fármacos que actúan sobre los vecinos de la diana
----AÑADIR ENFERMEDADES Y VISUALIZACIONES 
-5)informacion 
