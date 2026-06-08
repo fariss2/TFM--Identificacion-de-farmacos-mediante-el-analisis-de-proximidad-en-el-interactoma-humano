@@ -468,7 +468,7 @@ with tab2:
                             components.html(f.read(), height=600)
 
                         st.markdown(f"""
-                        **🔍 Guía de Interpretación de la Red de Proximidad:**
+                        ** Guía de Interpretación de la Red de Proximidad:**
                         * **Estrella Azul (Fármaco Candidato - {top_drug_name}):** Representa al fármaco alternativo priorizado por el algoritmo. Las líneas discontinuas azules muestran sus dianas proteicas directas en el mapa.
                         * **Diamante Rojo (Referencia - {farmaco_nombre}):** Representa el fármaco de base seleccionado del cual estás buscando alternativas. Las líneas discontinuas rojas conectan directamente con sus proteínas asociadas.
                         * **Nodos Morados (Superposición):** Proteínas clave que funcionan simultáneamente como dianas de **{top_drug_name}** y de **{farmaco_nombre}**. Indican un solapamiento directo de mecanismos de acción en el interactoma.
