@@ -33,7 +33,7 @@ Cuanto más cerca están las proteínas diana de un fármaco de las proteínas a
 
 st.sidebar.image(
     "portada.png", 
-    use_container_width=True 
+    width='stretch' 
 )
 
 st.sidebar.info("""
@@ -222,6 +222,27 @@ tab1, tab2, tab3, tab4 = st.tabs([
 
 with tab1:
     st.subheader("Explorar genes de una enfermedad")
+    with st.info(""):
+        col_texto, col_imagen = st.columns([3, 2], vertical_alignment="center")
+        
+        with col_texto:
+            st.markdown("""
+            **Módulo de Reposicionamiento basado en Genes de la Enfermedad**
+
+            Este módulo permite evaluar la cercanía topológica de los fármacos del catálogo frente a los genes o factores moleculares específicos asociados a una patología seleccionada.
+
+            **Útil cuando:**
+            - Deseas priorizar compuestos dirigidos a las bases genéticas de una patología.
+            - Analizas una enfermedad compleja a partir de sus dianas moleculares descritas.
+            - Buscas fármacos eficaces capaces de interactuar indirectamente sobre el interactoma local del gen de interés.
+            """)
+            
+        with col_imagen:
+            st.image(
+                "repo_enf.jpg", 
+                width='stretch'
+            )
+      
     disorder = st.selectbox("Selecciona enfermedad", df_disorders["disorder"].dropna().unique())
     genes_str = df_disorders[df_disorders["disorder"] == disorder]["gene_symb"].values[0]
     genes_list = [g.strip() for g in genes_str.split(",") if g.strip()]
@@ -272,7 +293,7 @@ with tab1:
             st.subheader("Top 20 fármacos para este gen por Z-score")
             st.dataframe(
                 ranking_gene[["Drug_Name","DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]].head(20),
-                use_container_width=True, hide_index=True
+                width='stretch', hide_index=True
             )
 
             st.subheader("Visualización del candidato más priorizado por la red")
@@ -326,7 +347,7 @@ with tab1:
             
             fig_px.add_hline(y=0, line_dash="dash", line_color="black")
             
-            st.plotly_chart(fig_px, use_container_width=True)
+            st.plotly_chart(fig_px,width='stretch')
 
             
             st.download_button(
@@ -342,18 +363,29 @@ with tab1:
 # ---------------------------------------------------------
 with tab2:
     st.subheader("Alternativas a un fármaco por proximidad de dianas")
-    st.info("""
-    Búsqueda de alternativas terapéuticas
+    with st.info(""):
+        col_texto, col_imagen = st.columns([3, 2], vertical_alignment="center")
+        
+        with col_texto:
+            st.markdown("""
+            **Búsqueda de alternativas terapéuticas**
 
-    Este módulo identifica fármacos con mecanismos similares basados en sus dianas en la red.
+            Este módulo identifica fármacos con mecanismos similares basados en sus dianas en la red.
 
-    Útil cuando:
-    - Un fármaco no funciona
-    - Hay efectos adversos
-    - Se buscan alternativas terapéuticas
+            **Útil cuando:**
+            - Un fármaco no funciona
+            - Hay efectos adversos
+            - Se buscan alternativas terapéuticas
 
-    No implica equivalencia clínica directa.
-    """)
+            **No implica equivalencia clínica directa.**
+            """)
+            
+        with col_imagen:
+            st.image(
+                "farmacos.jpg", 
+                width='stretch'
+            )
+   
 
     # Desplegable con lista de fármacos por nombre
     lista_farmacos = sorted(df_drug["Drug_Name"].dropna().unique())
@@ -411,7 +443,6 @@ with tab2:
 
                         top_drug = ranking_alt.iloc[0]["DrugBank_ID"]
                         top_targets = drug_targets[top_drug]
-                        # Modificado por Nacho: se recupera el nombre para etiquetar el nodo del farmaco candidato
                         top_drug_name = ranking_alt.iloc[0]["Drug_Name"]
                         
 
@@ -421,12 +452,11 @@ with tab2:
                         st.subheader("Top 20 alternativas por Z-score")
                         st.dataframe(
                             ranking_alt[["Drug_Name","DrugBank_ID","Proximidad","Media nula","Desviación nula", "Zscore","Pvalor"]].head(20),
-                            use_container_width=True, hide_index=True
+                            width='stretch', hide_index=True
                         )
 
 
                         st.subheader(f"Visualización — candidato  frente a {farmaco_nombre}")
-                        # Modificado por Nacho: se visualiza el farmaco de referencia y el candidato como nodos propios
                         html_file = visualize_context_network(
                             G,
                             ref_targets,
@@ -436,6 +466,15 @@ with tab2:
                         )
                         with open(html_file, "r", encoding="utf-8") as f:
                             components.html(f.read(), height=600)
+
+                        st.markdown(f"""
+                        **🔍 Guía de Interpretación de la Red de Proximidad:**
+                        * **Estrella Azul (Fármaco Candidato - {top_drug_name}):** Representa al fármaco alternativo priorizado por el algoritmo. Las líneas discontinuas azules muestran sus dianas proteicas directas en el mapa.
+                        * **Diamante Rojo (Referencia - {farmaco_nombre}):** Representa el fármaco de base seleccionado del cual estás buscando alternativas. Las líneas discontinuas rojas conectan directamente con sus proteínas asociadas.
+                        * **Nodos Morados (Superposición):** Proteínas clave que funcionan simultáneamente como dianas de **{top_drug_name}** y de **{farmaco_nombre}**. Indican un solapamiento directo de mecanismos de acción en el interactoma.
+                        * **Nodos Grises (Vecinos del Interactoma):** Proteínas del interactoma humano (BioGRID) que actúan como puentes topológicos intermediarios. Facilitan la interconexión física y funcional entre ambos perfiles terapéuticos.
+                        """)
+                
 
 
                             
@@ -477,7 +516,7 @@ with tab2:
                         
                         fig_px.add_hline(y=0, line_dash="dash", line_color="black")
                         
-                        st.plotly_chart(fig_px, use_container_width=True)
+                        st.plotly_chart(fig_px, width='stretch')
                         
 
                         st.download_button(
@@ -493,16 +532,38 @@ with tab2:
           
 with tab3:
     st.subheader("Proteínas o genes asociados a la enfermedad")
+
+    with st.info(""):
+        col_texto, col_imagen = st.columns([3, 2], vertical_alignment="center")
+        
+        with col_texto:
+            st.markdown("""
+            **Análisis de dianas o proteínas individuales**
+
+            Este módulo te permite evaluar el potencial de reposicionamiento de fármacos enfocándote en proteínas aisladas de interés o en genes específicos relacionado con una patología.
+
+            **Útil cuando:**
+            - Deseas estudiar el impacto de una única proteína clave.
+            - Analizas un biomarcador específico o un receptor aislado.
+            - Buscas fármacos cuyas dianas se encuentren topológicamente cerca de esta proteína en el interactoma.
+            """)
+            
+        with col_imagen:
+            st.image("prot.png", use_container_width=True)
+            
     user_input = st.text_area("Símbolo de interés", height=120)
+
     if user_input:
         raw_items = [p.strip() for p in user_input.split(",") if p.strip()]
+
         def es_uniprot(x):
             return len(x) == 6 and x[0].isalpha() and x[1].isdigit()
+
         symbols = [x for x in raw_items if not es_uniprot(x)]
         uniprots = [x for x in raw_items if es_uniprot(x)]
-        #conversion
+
         mapping = convert_gene_list(symbols) if symbols else {}
-        #converted_uniprots = [mapping[s] for s in symbols if mapping.get(s) is not None]
+
         converted_uniprots = []
         for s in symbols:
             vals = mapping.get(s)
@@ -512,8 +573,14 @@ with tab3:
                 converted_uniprots.extend(vals)
             else:
                 converted_uniprots.append(vals)
-                
+
         disease_proteins = set(uniprots + converted_uniprots)
+
+        if len(disease_proteins) > 20:
+            st.warning("Máximo 20 proteínas permitidas para mantener rendimiento.")
+            st.stop()
+
+        # Mostrar conversión
         if symbols:
             st.write("### Conversión símbolo → UniProt")
             for s in symbols:
@@ -521,72 +588,97 @@ with tab3:
                     st.error(f"{s}: NO encontrado")
                 else:
                     st.success(f"{s} → {mapping[s]}")
-        #filtro
+
+        # Filtrar por grafo
         disease_proteins = disease_proteins.intersection(G.nodes())
+
         if len(disease_proteins) == 0:
             st.warning("Ninguna proteína coincide con el interactoma.")
             st.stop()
-        with st.spinner("Calculando distancias desde el conjunto de enfermedad..."):
-            dist_ref = bfs_multifuente(G, disease_proteins)
-        resultados = []
-        with st.spinner("Evaluando fármacos..."):
+
+        @st.cache_data(show_spinner=False)
+        def compute_distances_cached(nodes_tuple):
+            return bfs_multifuente(G, set(nodes_tuple))
+
+        with st.spinner("Calculando distancias..."):
+            dist_ref = compute_distances_cached(tuple(sorted(disease_proteins)))
+
+        # Monte Carlo dinámico si hay muchas entradas
+        N_MC_DYNAMIC = 200 if len(disease_proteins) > 5 else 500
+
+        @st.cache_data(show_spinner=False)
+        def compute_ranking_cached(nodes_tuple):
+            resultados = []
             for drug, targets in drug_targets.items():
                 valids = list(targets.intersection(G.nodes()))
                 if not valids:
                     continue
+
                 d_obs, mu, sd, z, p = proximidad_estadistica(
-                    valids, dist_ref, grados, bins_grado, repeticiones=N_MC, tamaño_bin=BIN_TAM
+                    valids,
+                    dist_ref,
+                    grados,
+                    bins_grado,
+                    repeticiones=N_MC_DYNAMIC,
+                    tamaño_bin=BIN_TAM
                 )
+
                 if d_obs is None:
                     continue
-                resultados.append((drug, d_obs,mu,sd, z, p))
-        ranking_est = pd.DataFrame(resultados, columns=["DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]).merge(
+
+                resultados.append((drug, d_obs, mu, sd, z, p))
+
+            return resultados
+
+        with st.spinner("Evaluando fármacos..."):
+            resultados = compute_ranking_cached(tuple(sorted(disease_proteins)))
+
+        ranking_est = pd.DataFrame(
+            resultados,
+            columns=["DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]
+        ).merge(
             df_drug[["DrugBank_ID","Drug_Name"]].drop_duplicates(),
             on="DrugBank_ID", how="left"
         ).sort_values(["Zscore","Pvalor"], ascending=[True, True])
-        # Visualización del mejor por Z-score
-        top_drug = ranking_est.iloc[0]["DrugBank_ID"]
-        top_targets = drug_targets[top_drug]
-        # Modificado por Nacho: se recupera el nombre para etiquetar el nodo del farmaco candidato.
-        top_drug_name = ranking_est.iloc[0]["Drug_Name"]
-        
 
+        if ranking_est.empty:
+            st.warning("No se encontraron fármacos evaluables.")
+            st.stop()
 
-        
-
-
-        
-        with open(html_file, "r", encoding="utf-8") as f:
-            components.html(f.read(), height=600)
         st.subheader("Top 20 fármacos por Z-score")
         st.dataframe(
             ranking_est[["Drug_Name","DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]].head(20),
-            use_container_width=True, hide_index=True
+            width='stretch', hide_index=True
         )
-        
-        st.subheader("Visualización del mejor fármaco")
-        #se usa la nueva red contextual en lugar de mostrar solo proteinas
+
+        st.subheader("Visualización del fármaco candidato")
+
+        top = ranking_est.iloc[0]
+        top_targets = drug_targets[top["DrugBank_ID"]]
+
+        # 🔹 Reducir tamaño de entrada a la red
+        disease_subset = list(disease_proteins)[:5]
+
         html_file = visualize_context_network(
             G,
-            disease_proteins,
+            disease_subset,
             top_targets,
-            "Proteinas de enfermedad",
-            f"{top_drug_name} ({top_drug})",
+            "Proteínas input (subset)",
+            f"{top['Drug_Name']} ({top['DrugBank_ID']})",
         )
 
-        
+        with open(html_file, "r", encoding="utf-8") as f:
+            components.html(f.read(), height=600)
 
         st.subheader("Dispersión: Z-score vs P-valor")
-            
-        top20_ids = set(ranking_gene.nsmallest(20, "Zscore")["DrugBank_ID"])
-            
-            # columna para la clasificación 
+
+        top20_ids = set(ranking_est.nsmallest(20, "Zscore")["DrugBank_ID"])
+
         ranking_est['Clasificación'] = 'Otros fármacos'
         ranking_est.loc[ranking_est['DrugBank_ID'].isin(top20_ids), 'Clasificación'] = 'Top 20 fármacos'
-            
-            #  -log10(Pvalor) para el eje X para q no se solapen cerca del cero
+
         ranking_est["logP"] = -np.log10(ranking_est["Pvalor"])
-            
+
         fig_px = px.scatter(
             ranking_est,
             x="logP",
@@ -595,34 +687,21 @@ with tab3:
             color_discrete_map={
                 'Top 20 fármacos': 'red',
                 'Otros fármacos': 'gray'
-                },
-                #  raton
-            hover_name="Drug_Name", 
-            hover_data={
-                'DrugBank_ID': True,  
-                'Zscore': ':.2f',    
-                'Pvalor': ':.4f',     
-                'logP': False,        
-                'Clasificación': False 
-                },
-            labels={
-                "logP": "-log10(P-valor)",
-                "Zscore": "Z-score"
-                },
+            },
+            hover_name="Drug_Name",
             template="plotly_white"
-            )
-            
-        fig_px.add_hline(y=0, line_dash="dash", line_color="black")
-            
-        st.plotly_chart(fig_px, use_container_width=True)
+        )
 
-        
+        fig_px.add_hline(y=0, line_dash="dash", line_color="black")
+
+        st.plotly_chart(fig_px, width='stretch')
+
         st.download_button(
-            "Descargar ranking ",
+            "Descargar ranking",
             ranking_est.to_csv(index=False).encode(),
             "ranking_zscore.csv",
             "text/csv"
-        )                
+        )         
 # ---------------------------------------------------------
 # TAB 4
 # ---------------------------------------------------------
