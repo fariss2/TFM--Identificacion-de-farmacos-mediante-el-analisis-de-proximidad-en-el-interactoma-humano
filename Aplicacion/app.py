@@ -22,7 +22,7 @@ st.info("""
 
 Esta herramienta identifica fármacos potenciales para una enfermedad basándose en su proximidad en la red de proteínas humanas.
 
-Cuanto más cerca están las proteínas diana de un fármaco de las proteínas asociadas a la enfermedad, mayor es su potencial efecto terapéutico.
+Cuanto más significativamente cerca están las proteínas diana de un fármaco de las proteínas asociadas a la enfermedad, mayor es su potencial efecto terapéutico.
 
 **Interpretación clínica:**
 - No implica indicación aprobada, sino hipótesis de reposicionamiento.
@@ -51,15 +51,26 @@ No evalúa:
 
 """)
 
-DATA_PATH = os.path.join(os.path.dirname(__file__), "data")
-BIN_TAM =  50
-# Modificado por Nacho: se aumenta el numero de simulaciones Monte Carlo para estabilizar z-score y p-valor.
+DATA_PATH = os.path.join(os.path.dirname(__file__), "data")#ruta del conjunto de datos 
+BIN_TAM =  50 #tamaño del bin
+# numero de simulaciones Monte Carlo para estabilizar z-score y p-valor.
 N_MC = 500 
 # ---------------------------------------------------------
 # FUNCIONES
 # ---------------------------------------------------------
 @st.cache_data
 def load_data():
+    """
+    Carga los archivos de datos para el análisis, las interacciones biológicas (BioGRID), los dianas de los fármacos
+    (DrugBank) y los genes asociados a enfermedades.
+    Devuelve:
+        Una tupla que contiene:
+            - G: Grafo que representa el interactoma humano.
+            - df_drug: DataFrame con la información de fármacos y sus dianas.
+            - df_disorders: DataFrame con genes asociados a patologías.
+    
+    
+    """
     df_edges = pd.read_csv(os.path.join(DATA_PATH, "biogrid_edges.csv"))
     G = nx.from_pandas_edgelist(df_edges, source='source', target='target')
 
@@ -77,6 +88,19 @@ G, df_drug, df_disorders = load_data()
 
 @st.cache_data 
 def construir_bins_por_grado(_grafo, tamaño_bin):
+    """
+    Agrupa los nodos del grafo en'bins'basados en su grado. fundamental para análisis estadísticos
+
+    parametros:
+        _grafo:El grafo o interactoma de NetworkX.
+        tamaño_bin: El rango o tamaño del intervalo de grados para cada contenedor.
+
+    Devuelve:
+        Una tupla que contiene:
+            - grados: Diccionario de mapeo {nodo: grado_del_nodo}.
+            - bins:Diccionario donde la clave es el ID del bin y el valor es una lista de proteínas que pertenecen a ese rango de grado
+    
+    """
     grados = {n: _grafo.degree(n) for n in _grafo.nodes()} 
     bins = {} 
     for prot, g in grados.items(): 
@@ -85,9 +109,7 @@ def construir_bins_por_grado(_grafo, tamaño_bin):
     return grados, bins
 grados, bins_grado = construir_bins_por_grado(G, BIN_TAM)
 @st.cache_data
-def map_drug_targets(df):
-    return df.groupby("DrugBank_ID")["UniProt_ID"].apply(set).to_dict()
-drug_targets = map_drug_targets(df_drug)
+drug_targets =df_drug.groupby("DrugBank_ID")["UniProt_ID"].apply(set).to_dict()#cada fármaco con el conjunto de sus proteínas diana
 # ---------------------------------------------------------
 # VISUALIZACION
 # ---------------------------------------------------------
@@ -99,6 +121,23 @@ def visualize_context_network(
     drug_label,
     max_neighbors=12,
 ):
+
+
+    """
+    Genera una red interactiva en HTML para visualizar el entorno local entre un conjunto de nodos de contexto (enfermedad) y las dianas de un fármaco.
+
+    parametros:
+        G: Grafo completo del interactoma
+        context_nodes: Lista de nodos (proteínas/genes) asociados al contexto o enfermedad.
+        drug_targets: Lista de nodos diana del fármaco a evaluar.
+        context_label: Nombre o etiqueta de la enfermedad para el nodo principal virtual.
+        drug_label: Nombre del fármaco para el nodo principal virtual.
+        max_neighbors: Número máximo de vecinos directos que se mostrarán por cada nodo para evitar la saturación visual. Por defecto es 12.
+
+    devuelve:
+        str: Ruta absoluta del archivo HTML generado (`network_context.html`).
+    
+    """
     net = Network(height="650px", width="100%", bgcolor="#ffffff")
     html_path = os.path.join(os.getcwd(), "network_context.html")
     net.set_options("""
@@ -282,8 +321,7 @@ with tab1:
 
                         
 
-            # Visualización del mejor por Z-score
-            # Modificado por Nacho: se evita acceder a la primera fila si no hay farmacos evaluables
+            # se evita acceder a la primera fila si no hay farmacos evaluables
             if ranking_gene.empty:
                 st.warning("No se encontraron farmacos evaluables para este gen.")
                 st.stop()
@@ -294,6 +332,8 @@ with tab1:
                 ranking_gene[["Drug_Name","DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]].head(20),
                 width='stretch', hide_index=True
             )
+
+            # Visualización del mejor por Z-score
 
             st.subheader("Visualización del candidato más priorizado por la red")
             # Modificado por Nacho: se usa la nueva red contextual para conectar gen y farmaco candidato
@@ -315,7 +355,7 @@ with tab1:
 
 * **Nodos Morados (Superposición):** Proteínas que actúan simultáneamente como dianas del fármaco candidato y están asociadas al gen de interés. Sugieren un **posible mecanismo de acción directo o compartido**.
 
-* **Nodos Grises (Vecinos del Interactoma):** Proteínas cercanas en la red de interacción (BioGRID) que actúan como intermediarias. Reflejan la **proximidad topológica indirecta**, clave en medicina de redes.
+* **Nodos Grises (Vecinos del Interactoma):** Proteínas cercanas en la red de interacción que actúan como intermediarias. Reflejan la **proximidad topológica indirecta**, clave en medicina de redes.
 
 """)
 
@@ -358,11 +398,11 @@ with tab1:
             
             fig_px.add_hline(y=0, line_dash="dash", line_color="black")
             
-            st.plotly_chart(fig_px, width='stretch')
+            st.plotly_chart(fig_px,width='stretch')
 
             
             st.download_button(
-                "Descargar ranking por gen (Z-score)",
+                "Descargar ranking por gen",
                 ranking_gene.to_csv(index=False).encode(),
                 "ranking_gen_zscore.csv",
                 "text/csv"
@@ -483,7 +523,7 @@ with tab2:
                         * **Estrella Azul (Fármaco Candidato - {top_drug_name}):** Representa al fármaco alternativo priorizado por el algoritmo. Las líneas discontinuas azules muestran sus dianas proteicas directas en el mapa.
                         * **Diamante Rojo (Referencia - {farmaco_nombre}):** Representa el fármaco de base seleccionado del cual estás buscando alternativas. Las líneas discontinuas rojas conectan directamente con sus proteínas asociadas.
                         * **Nodos Morados (Superposición):** Proteínas clave que funcionan simultáneamente como dianas de **{top_drug_name}** y de **{farmaco_nombre}**. Indican un solapamiento directo de mecanismos de acción en el interactoma.
-                        * **Nodos Grises (Vecinos del Interactoma):** Proteínas del interactoma humano que actúan como puentes topológicos intermediarios. Facilitan la interconexión física y funcional entre ambos perfiles terapéuticos.
+                        * **Nodos Grises (Vecinos del Interactoma):** Proteínas del interactoma humano (BioGRID) que actúan como puentes topológicos intermediarios. Facilitan la interconexión física y funcional entre ambos perfiles terapéuticos.
                         """)
                 
 
@@ -668,7 +708,7 @@ with tab3:
             st.subheader("Top 20 fármacos por Z-score")
             st.dataframe(
                 ranking_est[["Drug_Name","DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]].head(20),
-                use_container_width=True, hide_index=True
+                width=True, hide_index=True
             )
 
             st.subheader("Visualización del fármaco candidato")
@@ -699,7 +739,7 @@ with tab3:
 
 * **Nodos Morados (Superposición):** Proteínas que coinciden entre las dianas del fármaco candidato y el conjunto de proteínas de entrada. Indican una **interacción directa potencial**, sugiriendo un mecanismo de acción más específico.
 
-* **Nodos Grises (Vecinos del Interactoma):** Proteínas cercanas en la red de interacción (BioGRID) que no son dianas directas pero actúan como intermediarias. Reflejan la **proximidad funcional indirecta**, clave en estrategias de reposicionamiento.
+* **Nodos Grises (Vecinos del Interactoma):** Proteínas cercanas en la red de interacción que no son dianas directas pero actúan como intermediarias. Reflejan la **proximidad funcional indirecta**, clave en estrategias de reposicionamiento.
 """)
 
             st.subheader("Dispersión: Z-score vs P-valor")
@@ -726,7 +766,7 @@ with tab3:
 
             fig_px.add_hline(y=0, line_dash="dash", line_color="black")
 
-            st.plotly_chart(fig_px, use_container_width=True)
+            st.plotly_chart(fig_px,width='stretch')
 
             st.download_button(
                 "Descargar ranking",
@@ -754,7 +794,7 @@ with tab4:
     """)
     
     # ---------------------------------------------------------
-    # NUEVA SECCIÓN: CONTROL Y CALIDAD DE DATOS
+    # CONTROL Y CALIDAD DE DATOS
     # ---------------------------------------------------------
     st.markdown("---")
     st.subheader(""" Resumen de Calidad y Métricas de los Datos""")
