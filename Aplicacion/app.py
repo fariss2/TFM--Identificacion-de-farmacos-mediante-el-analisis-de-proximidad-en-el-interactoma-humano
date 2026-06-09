@@ -714,7 +714,7 @@ with tab3:
             st.subheader("Top 20 fármacos por Z-score")
             st.dataframe(
                 ranking_est[["Drug_Name","DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]].head(20),
-                width=True, hide_index=True
+                width='stretch', hide_index=True
             )
 
             st.subheader("Visualización del fármaco candidato")
