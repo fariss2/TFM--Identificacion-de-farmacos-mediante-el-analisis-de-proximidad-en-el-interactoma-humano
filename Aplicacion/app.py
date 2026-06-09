@@ -32,7 +32,7 @@ Cuanto más cerca están las proteínas diana de un fármaco de las proteínas a
 """)
 
 st.sidebar.image(
-    "portada.png", 
+    "Aplicacion/portada.png", 
     width='stretch' 
 )
 
@@ -239,7 +239,7 @@ with tab1:
             
         with col_imagen:
             st.image(
-                "repo_enf.jpg", 
+                "Aplicacion/repo_enf.jpg", 
                 width='stretch'
             )
       
@@ -347,7 +347,7 @@ with tab1:
             
             fig_px.add_hline(y=0, line_dash="dash", line_color="black")
             
-            st.plotly_chart(fig_px,width='stretch')
+            st.plotly_chart(fig_px, width='stretch')
 
             
             st.download_button(
@@ -382,7 +382,7 @@ with tab2:
             
         with col_imagen:
             st.image(
-                "farmacos.jpg", 
+                "Aplicacion/farmacos.jpg", 
                 width='stretch'
             )
    
@@ -468,11 +468,11 @@ with tab2:
                             components.html(f.read(), height=600)
 
                         st.markdown(f"""
-                        ** Guía de Interpretación de la Red de Proximidad:**
+                        **Guía de Interpretación de la Red de Proximidad:**
                         * **Estrella Azul (Fármaco Candidato - {top_drug_name}):** Representa al fármaco alternativo priorizado por el algoritmo. Las líneas discontinuas azules muestran sus dianas proteicas directas en el mapa.
                         * **Diamante Rojo (Referencia - {farmaco_nombre}):** Representa el fármaco de base seleccionado del cual estás buscando alternativas. Las líneas discontinuas rojas conectan directamente con sus proteínas asociadas.
                         * **Nodos Morados (Superposición):** Proteínas clave que funcionan simultáneamente como dianas de **{top_drug_name}** y de **{farmaco_nombre}**. Indican un solapamiento directo de mecanismos de acción en el interactoma.
-                        * **Nodos Grises (Vecinos del Interactoma):** Proteínas del interactoma humano (BioGRID) que actúan como puentes topológicos intermediarios. Facilitan la interconexión física y funcional entre ambos perfiles terapéuticos.
+                        * **Nodos Grises (Vecinos del Interactoma):** Proteínas del interactoma humano que actúan como puentes topológicos intermediarios. Facilitan la interconexión física y funcional entre ambos perfiles terapéuticos.
                         """)
                 
 
@@ -549,7 +549,7 @@ with tab3:
             """)
             
         with col_imagen:
-            st.image("prot.png", use_container_width=True)
+            st.image("Aplicacion/prot.png", width='stretch')
             
     user_input = st.text_area("Símbolo de interés", height=120)
 
