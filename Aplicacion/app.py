@@ -109,7 +109,13 @@ def construir_bins_por_grado(_grafo, tamaño_bin):
     return grados, bins
 grados, bins_grado = construir_bins_por_grado(G, BIN_TAM)
 @st.cache_data
-drug_targets =df_drug.groupby("DrugBank_ID")["UniProt_ID"].apply(set).to_dict()#cada fármaco con el conjunto de sus proteínas diana
+def map_drug_targets(df):
+    """
+    Funcion que mapea cada farmaco con el conjunto de sus proteinas diana
+    """
+    return df.groupby("DrugBank_ID")["UniProt_ID"].apply(set).to_dict()
+drug_targets = map_drug_targets(df_drug)
+
 # ---------------------------------------------------------
 # VISUALIZACION
 # ---------------------------------------------------------
