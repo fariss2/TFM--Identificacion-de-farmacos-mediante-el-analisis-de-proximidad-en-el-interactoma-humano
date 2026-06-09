@@ -32,7 +32,7 @@ Cuanto más cerca están las proteínas diana de un fármaco de las proteínas a
 """)
 
 st.sidebar.image(
-    "portada.png", 
+    "Aplicacion/portada.png", 
     width='stretch' 
 )
 
@@ -239,7 +239,7 @@ with tab1:
             
         with col_imagen:
             st.image(
-                "repo_enf.jpg", 
+                "Aplicacion/repo_enf.jpg", 
                 width='stretch'
             )
       
@@ -347,7 +347,7 @@ with tab1:
             
             fig_px.add_hline(y=0, line_dash="dash", line_color="black")
             
-            st.plotly_chart(fig_px,width='stretch')
+            st.plotly_chart(fig_px, width='stretch')
 
             
             st.download_button(
@@ -382,7 +382,7 @@ with tab2:
             
         with col_imagen:
             st.image(
-                "farmacos.jpg", 
+                "Aplicacion/farmacos.jpg", 
                 width='stretch'
             )
    
@@ -549,7 +549,7 @@ with tab3:
             """)
             
         with col_imagen:
-            st.image("prot.png", use_container_width=True)
+            st.image("Aplicacion/prot.png", width='stretch')
             
     user_input = st.text_area("Símbolo de interés", height=120)
 
