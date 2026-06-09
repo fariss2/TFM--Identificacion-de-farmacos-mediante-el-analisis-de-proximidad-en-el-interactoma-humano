@@ -7,7 +7,6 @@ import random
 from collections import deque
 from pyvis.network import Network
 import streamlit.components.v1 as components
-import matplotlib.pyplot as plt
 import plotly.express as px  
 from gene_to_uniprot import convert_gene_list
 from network_medicine import bfs_multifuente,proximidad_estadistica, generar_dianas_aleatorias,distancia_media_conjunto
@@ -55,7 +54,7 @@ No evalúa:
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data")
 BIN_TAM =  50
 # Modificado por Nacho: se aumenta el numero de simulaciones Monte Carlo para estabilizar z-score y p-valor.
-N_MC = 1000 
+N_MC = 500 
 # ---------------------------------------------------------
 # FUNCIONES
 # ---------------------------------------------------------
@@ -307,6 +306,18 @@ with tab1:
             )
             with open(html_file, "r", encoding="utf-8") as f:
                 components.html(f.read(), height=600)
+            st.markdown(f"""
+**Guía de Interpretación de la Red de Proximidad:**
+
+* **Estrella Azul (Fármaco Candidato - {best['Drug_Name']}):** Representa el fármaco priorizado por el algoritmo de medicina de redes. Las líneas discontinuas azules conectan con sus **dianas proteicas directas** en el interactoma.
+
+* **Diamante Rojo (Gen de Referencia - {gene}):** Representa el gen seleccionado asociado a la enfermedad. Las conexiones indican las proteínas de referencia utilizadas como punto de partida del análisis.
+
+* **Nodos Morados (Superposición):** Proteínas que actúan simultáneamente como dianas del fármaco candidato y están asociadas al gen de interés. Sugieren un **posible mecanismo de acción directo o compartido**.
+
+* **Nodos Grises (Vecinos del Interactoma):** Proteínas cercanas en la red de interacción (BioGRID) que actúan como intermediarias. Reflejan la **proximidad topológica indirecta**, clave en medicina de redes.
+
+""")
 
                 
             st.subheader("Dispersión: Z-score vs P-valor")
@@ -529,7 +540,7 @@ with tab2:
 # ---------------------------------------------------------
 # TAB 3
 # ---------------------------------------------------------
-          
+           
 with tab3:
     st.subheader("Proteínas o genes asociados a la enfermedad")
 
@@ -569,25 +580,32 @@ with tab3:
             vals = mapping.get(s)
             if vals is None:
                 continue
-            if isinstance(vals, list):
-                converted_uniprots.extend(vals)
-            else:
-                converted_uniprots.append(vals)
+            
+            if not isinstance(vals, list):
+                vals = [vals]
+                
+            # Filtro Swiss-Prot Canónico
+            swiss_prot_ids = [str(v).split('-')[0] for v in vals if len(str(v).split('-')[0]) == 6]
+            if swiss_prot_ids:
+                converted_uniprots.append(swiss_prot_ids[0])
 
         disease_proteins = set(uniprots + converted_uniprots)
 
-        if len(disease_proteins) > 20:
-            st.warning("Máximo 20 proteínas permitidas para mantener rendimiento.")
-            st.stop()
-
-        # Mostrar conversión
+        # conversión limpia en pantalla antes de evaluar
         if symbols:
             st.write("### Conversión símbolo → UniProt")
             for s in symbols:
-                if mapping.get(s) is None:
+                ind_vals = mapping.get(s)
+                if ind_vals is None:
                     st.error(f"{s}: NO encontrado")
                 else:
-                    st.success(f"{s} → {mapping[s]}")
+                    if not isinstance(ind_vals, list):
+                        ind_vals = [ind_vals]
+                    sp_ids = [str(v).split('-')[0] for v in ind_vals if len(str(v).split('-')[0]) == 6]
+                    if sp_ids:
+                        st.success(f"{s} → {sp_ids[0]}")
+                    else:
+                        st.warning(f"{s} → No se encontró un ID Swiss-Prot canónico equivalente.")
 
         # Filtrar por grafo
         disease_proteins = disease_proteins.intersection(G.nodes())
@@ -596,117 +614,132 @@ with tab3:
             st.warning("Ninguna proteína coincide con el interactoma.")
             st.stop()
 
-        @st.cache_data(show_spinner=False)
-        def compute_distances_cached(nodes_tuple):
-            return bfs_multifuente(G, set(nodes_tuple))
+        if st.button("Evaluar gen/proteína"):
+            
+            @st.cache_data(show_spinner=False)
+            def compute_distances_cached(nodes_tuple):
+                return bfs_multifuente(G, set(nodes_tuple))
 
-        with st.spinner("Calculando distancias..."):
-            dist_ref = compute_distances_cached(tuple(sorted(disease_proteins)))
+            with st.spinner("Calculando distancias..."):
+                dist_ref = compute_distances_cached(tuple(sorted(disease_proteins)))
 
-        # Monte Carlo dinámico si hay muchas entradas
-        N_MC_DYNAMIC = 200 if len(disease_proteins) > 5 else 500
+            # Monte Carlo dinámico
+            N_MC_DYNAMIC = 200 if len(disease_proteins) > 5 else 500
 
-        @st.cache_data(show_spinner=False)
-        def compute_ranking_cached(nodes_tuple):
-            resultados = []
-            for drug, targets in drug_targets.items():
-                valids = list(targets.intersection(G.nodes()))
-                if not valids:
-                    continue
+            @st.cache_data(show_spinner=False)
+            def compute_ranking_cached(nodes_tuple):
+                resultados = []
+                for drug, targets in drug_targets.items():
+                    valids = list(targets.intersection(G.nodes()))
+                    if not valids:
+                        continue
 
-                d_obs, mu, sd, z, p = proximidad_estadistica(
-                    valids,
-                    dist_ref,
-                    grados,
-                    bins_grado,
-                    repeticiones=N_MC_DYNAMIC,
-                    tamaño_bin=BIN_TAM
-                )
+                    d_obs, mu, sd, z, p = proximidad_estadistica(
+                        valids,
+                        dist_ref,
+                        grados,
+                        bins_grado,
+                        repeticiones=N_MC_DYNAMIC,
+                        tamaño_bin=BIN_TAM
+                    )
 
-                if d_obs is None:
-                    continue
+                    if d_obs is None:
+                        continue
 
-                resultados.append((drug, d_obs, mu, sd, z, p))
+                    resultados.append((drug, d_obs, mu, sd, z, p))
 
-            return resultados
+                return resultados
 
-        with st.spinner("Evaluando fármacos..."):
-            resultados = compute_ranking_cached(tuple(sorted(disease_proteins)))
+            with st.spinner("Evaluando fármacos..."):
+                resultados = compute_ranking_cached(tuple(sorted(disease_proteins)))
 
-        ranking_est = pd.DataFrame(
-            resultados,
-            columns=["DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]
-        ).merge(
-            df_drug[["DrugBank_ID","Drug_Name"]].drop_duplicates(),
-            on="DrugBank_ID", how="left"
-        ).sort_values(["Zscore","Pvalor"], ascending=[True, True])
+            ranking_est = pd.DataFrame(
+                resultados,
+                columns=["DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]
+            ).merge(
+                df_drug[["DrugBank_ID","Drug_Name"]].drop_duplicates(),
+                on="DrugBank_ID", how="left"
+            ).sort_values(["Zscore","Pvalor"], ascending=[True, True])
 
-        if ranking_est.empty:
-            st.warning("No se encontraron fármacos evaluables.")
-            st.stop()
+            if ranking_est.empty:
+                st.warning("No se encontraron fármacos evaluables.")
+                st.stop()
 
-        st.subheader("Top 20 fármacos por Z-score")
-        st.dataframe(
-            ranking_est[["Drug_Name","DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]].head(20),
-            width='stretch', hide_index=True
-        )
+            st.subheader("Top 20 fármacos por Z-score")
+            st.dataframe(
+                ranking_est[["Drug_Name","DrugBank_ID","Proximidad","Media nula","Desviación nula","Zscore","Pvalor"]].head(20),
+                use_container_width=True, hide_index=True
+            )
 
-        st.subheader("Visualización del fármaco candidato")
+            st.subheader("Visualización del fármaco candidato")
 
-        top = ranking_est.iloc[0]
-        top_targets = drug_targets[top["DrugBank_ID"]]
+            top = ranking_est.iloc[0]
+            top_targets = drug_targets[top["DrugBank_ID"]]
 
-        # 🔹 Reducir tamaño de entrada a la red
-        disease_subset = list(disease_proteins)[:5]
+            # Reducir tamaño de entrada a la red visualizada
+            disease_subset = list(disease_proteins)[:5]
 
-        html_file = visualize_context_network(
-            G,
-            disease_subset,
-            top_targets,
-            "Proteínas input (subset)",
-            f"{top['Drug_Name']} ({top['DrugBank_ID']})",
-        )
+            html_file = visualize_context_network(
+                G,
+                disease_subset,
+                top_targets,
+                "Proteínas input",
+                f"{top['Drug_Name']} ({top['DrugBank_ID']})",
+            )
 
-        with open(html_file, "r", encoding="utf-8") as f:
-            components.html(f.read(), height=600)
+            with open(html_file, "r", encoding="utf-8") as f:
+                components.html(f.read(), height=600)
+                
+            st.markdown(f"""
+**Guía de Interpretación de la Red de Proximidad:**
 
-        st.subheader("Dispersión: Z-score vs P-valor")
+* **Estrella Azul (Fármaco Candidato - {top['Drug_Name']}):** Representa el fármaco priorizado por el algoritmo. Las líneas discontinuas azules conectan con sus **dianas proteicas directas**, mostrando sobre qué elementos del interactoma actúa.
 
-        top20_ids = set(ranking_est.nsmallest(20, "Zscore")["DrugBank_ID"])
+* **Diamante Rojo (Proteínas de Entrada- {str(user_input).strip()}):** Representa el conjunto de proteínas o genes introducidos por el usuario. Constituyen el contexto biológico de referencia del análisis.
 
-        ranking_est['Clasificación'] = 'Otros fármacos'
-        ranking_est.loc[ranking_est['DrugBank_ID'].isin(top20_ids), 'Clasificación'] = 'Top 20 fármacos'
+* **Nodos Morados (Superposición):** Proteínas que coinciden entre las dianas del fármaco candidato y el conjunto de proteínas de entrada. Indican una **interacción directa potencial**, sugiriendo un mecanismo de acción más específico.
 
-        ranking_est["logP"] = -np.log10(ranking_est["Pvalor"])
+* **Nodos Grises (Vecinos del Interactoma):** Proteínas cercanas en la red de interacción (BioGRID) que no son dianas directas pero actúan como intermediarias. Reflejan la **proximidad funcional indirecta**, clave en estrategias de reposicionamiento.
+""")
 
-        fig_px = px.scatter(
-            ranking_est,
-            x="logP",
-            y="Zscore",
-            color="Clasificación",
-            color_discrete_map={
-                'Top 20 fármacos': 'red',
-                'Otros fármacos': 'gray'
-            },
-            hover_name="Drug_Name",
-            template="plotly_white"
-        )
+            st.subheader("Dispersión: Z-score vs P-valor")
 
-        fig_px.add_hline(y=0, line_dash="dash", line_color="black")
+            top20_ids = set(ranking_est.nsmallest(20, "Zscore")["DrugBank_ID"])
 
-        st.plotly_chart(fig_px, width='stretch')
+            ranking_est['Clasificación'] = 'Otros fármacos'
+            ranking_est.loc[ranking_est['DrugBank_ID'].isin(top20_ids), 'Clasificación'] = 'Top 20 fármacos'
 
-        st.download_button(
-            "Descargar ranking",
-            ranking_est.to_csv(index=False).encode(),
-            "ranking_zscore.csv",
-            "text/csv"
-        )         
+            ranking_est["logP"] = -np.log10(ranking_est["Pvalor"])
+
+            fig_px = px.scatter(
+                ranking_est,
+                x="logP",
+                y="Zscore",
+                color="Clasificación",
+                color_discrete_map={
+                    'Top 20 fármacos': 'red',
+                    'Otros fármacos': 'gray'
+                },
+                hover_name="Drug_Name",
+                template="plotly_white"
+            )
+
+            fig_px.add_hline(y=0, line_dash="dash", line_color="black")
+
+            st.plotly_chart(fig_px, use_container_width=True)
+
+            st.download_button(
+                "Descargar ranking",
+                ranking_est.to_csv(index=False).encode(),
+                "ranking_zscore.csv",
+                "text/csv"
+            )
+            
 # ---------------------------------------------------------
 # TAB 4
 # ---------------------------------------------------------
 with tab4: 
-    st.subheader("¿Cómo funciona esta herramienta?")
+    st.subheader(""" ¿Cómo funciona esta herramienta?""")
     st.write("""
     Esta herramienta utiliza principios de **Medicina de Redes**:
 
@@ -724,7 +757,7 @@ with tab4:
     # NUEVA SECCIÓN: CONTROL Y CALIDAD DE DATOS
     # ---------------------------------------------------------
     st.markdown("---")
-    st.subheader("Resumen de Calidad y Métricas de los Datos")
+    st.subheader(""" Resumen de Calidad y Métricas de los Datos""")
     
     # cobertura
     nodos_red = G.number_of_nodes()
@@ -781,9 +814,25 @@ with tab4:
     
     st.markdown("---")
     st.write("""
-    **Bases de datos utilizadas:**
+    ### Bases de datos utilizadas:
     - **BioGRID:** Red de interacciones proteína-proteína humanas (interactoma).
     - **DrugBank:** Registro de fármacos y sus correspondientes dianas proteicas mapeadas a identificadores UniProt.
     - **MyGene.info:** Módulo de conversión dinámica de Símbolos Genéticos a accesiones UniProt.
     - *Datos provistos en el marco de la asignatura Análisis de Datos de Alta Dimensión y Medicina de Redes.*
+    """)
+    st.markdown("---")
+
+    st.subheader("Información Académica")
+    
+    st.markdown("""
+    #### Trabajo de Fin de Máster (TFM)
+    Esta aplicación ha sido desarrollada como parte de un **Trabajo de Fin de Máster (TFM)** en la **Universidad de Burgos (UBU)**.
+    
+    * **Titulación:** Máster Universitario en Ingeniería Biomédica.
+    * **Autora:** Nisrin Fariss Lamine.
+    * **Tutores de TFM:** 
+      * José Ignacio Santos Martín 
+      * Virginia Ahedo García 
+    
+    ---
     """)
